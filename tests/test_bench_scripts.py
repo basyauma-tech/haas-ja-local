@@ -19,16 +19,18 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
 
 
 def test_read_manifest_resolves_relative_audio_and_accepts_audio_filepath(tmp_path):
+    # Windowsでは"/abs/b.flac"はドライブが無いので絶対パスではない。どのOSでも絶対になるパスを使う
+    absolute = Path(tmp_path.anchor) / "abs" / "b.flac"
     write_jsonl(
         tmp_path / "s.jsonl",
         [
             {"id": "a", "audio": "audio/s/a.flac", "text": "あ", "duration": 1.5},
-            {"audio_filepath": "/abs/b.flac", "text": "い"},
+            {"audio_filepath": str(absolute), "text": "い"},
         ],
     )
     items = benchlib.read_manifest(tmp_path, "s")
     assert items[0] == benchlib.Utterance("a", tmp_path / "audio/s/a.flac", "あ", 1.5)
-    assert items[1] == benchlib.Utterance("b", Path("/abs/b.flac"), "い", 0.0)
+    assert items[1] == benchlib.Utterance("b", absolute, "い", 0.0)
 
 
 def test_read_manifest_limit(tmp_path):
@@ -97,7 +99,8 @@ def test_rebuild_command_forwards_subsets_and_jvnv():
     cmd = rebuild_bench.build_command(
         Path("/d/rebuild.py"), subsets=["fleurs", "jvnv"], out=Path("o"), jvnv_zip=Path("j.zip")
     )
-    assert cmd[1:] == ["-I", "/d/rebuild.py", "--out", "o", "--subset", "fleurs", "--subset", "jvnv", "--jvnv", "j.zip"]
+    script = str(Path("/d/rebuild.py"))  # Windowsでは区切りがバックスラッシュになる
+    assert cmd[1:] == ["-I", script, "--out", "o", "--subset", "fleurs", "--subset", "jvnv", "--jvnv", "j.zip"]
     assert cmd[0] == sys.executable
 
 
