@@ -108,7 +108,7 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 - 公表値は、元モデルのモデルカードと公開記事にあるasr-ja-bench v1.1での公式の測定（NeMo、bf16、H200）です。両者で小数第2位が違うため幅で示しました。差は幅の近い端からの差で、幅の中なら0としました。flexとkanaは公表値と照合していません。
 - 精度を合わせるための調整はしていません。1回目の実行の数値です。
 
-実装の確認: FLEURSの6発話で、推論コードの基準となる純PyTorch実装と、同じチェックポイントから第三者が書き出したfloat32のONNXを比べました。log-melの最大絶対差は9.54e-07、エンコーダ出力の相対誤差は最大4.36e-06、結合ネットワークのlogitsの相対誤差は最大1.16e-06で、トークン列は6発話すべてで一致しました。MLX実装そのものは、上のCERの表と、長時間音声でのPyTorch実装との比較（CER strict 6.44%と6.39%）で確かめています。
+実装の確認: FLEURSの6発話で、推論コードの基準となる純PyTorch実装と、同じチェックポイントから第三者が書き出したfloat32のONNXを比べました。log-melの最大絶対差は9.54e-07、エンコーダ出力の相対誤差は最大4.36e-06、結合ネットワークのlogitsの相対誤差は最大1.16e-06で、トークン列は6発話すべてで一致しました。MLX実装そのものは、上のCERの表と、長時間音声でのPyTorch実装との比較（CER strict 6.44%と6.39%）で確かめています。FLEURS全650発話では、MLX版（エンコーダbf16）とPyTorch実装（float32）のトークン列が632発話（97.2%）で完全に一致し、違った18発話のうち12発話は句読点だけの違いでした。
 
 未測定:
 
@@ -276,7 +276,7 @@ Conditions:
 - Published values are the official asr-ja-bench v1.1 results (NeMo, bf16, H200) from the original model card and the release blog post. They differ in the second decimal place, so both are shown as a range. The difference is measured from the nearer end of the range and is 0 inside it. flex and kana were not compared with published values.
 - Nothing was tuned to match the published values. These are the numbers from the first run.
 
-Implementation check: on six FLEURS utterances, the pure PyTorch implementation that serves as the reference for the inference code was compared with a float32 ONNX export of the same checkpoint made by a third party. The maximum absolute log-mel difference was 9.54e-07, the maximum relative error of the encoder output 4.36e-06 and that of the joint network logits 1.16e-06; the token sequences matched for all six utterances. The MLX implementation itself is checked by the CER table above and by comparison with the PyTorch implementation on long audio (CER strict 6.44% vs 6.39%).
+Implementation check: on six FLEURS utterances, the pure PyTorch implementation that serves as the reference for the inference code was compared with a float32 ONNX export of the same checkpoint made by a third party. The maximum absolute log-mel difference was 9.54e-07, the maximum relative error of the encoder output 4.36e-06 and that of the joint network logits 1.16e-06; the token sequences matched for all six utterances. The MLX implementation itself is checked by the CER table above and by comparison with the PyTorch implementation on long audio (CER strict 6.44% vs 6.39%). On all 650 FLEURS utterances, the MLX version (bf16 encoder) and the PyTorch implementation (float32) produced identical token sequences for 632 (97.2%); 12 of the other 18 differ only in punctuation.
 
 Not measured:
 
