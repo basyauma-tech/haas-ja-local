@@ -87,6 +87,8 @@ class TimedToken:
 
 class Backend(Protocol):
     config: HaasConfig
+    window_np: np.ndarray   # チェックポイントの窓（400,）をfloat32にしたもの。log_melに渡す
+    fb_np: np.ndarray       # メルフィルタバンク [128, 257] float32
     def encode(self, mel: np.ndarray, n_frames: int) -> Any: ...          # mel [128, T_pad] f32 → バックエンド固有のエンコーダ出力（有効長に切り詰め済み）
     def num_frames(self, encoded: Any) -> int: ...
     def init_state(self) -> Any: ...                                       # 予測ネットワークのゼロ状態
@@ -126,7 +128,7 @@ def test_version():
 
 - [ ] **Step 3: テストが失敗することを確認**
 
-Run: `uv sync --all-extras --dev && uv run pytest tests/test_package.py -v`
+Run: `uv sync --extra mlx --extra onnx --extra convert --dev && uv run pytest tests/test_package.py -v`
 Expected: FAIL（`__version__`がない、またはimportエラー）
 
 - [ ] **Step 4: `src/haas_ja_local/__init__.py`に`__version__`を置き、`.gitignore`（`var/`、`.venv/`、`__pycache__/`、`dist/`、`*.onnx`、`*.safetensors`）、`LICENSE`（Apache-2.0全文）、`NOTICE`を書く**
@@ -135,7 +137,7 @@ NOTICEの内容: 本パッケージの著作権（basyauma-technology、2026）�
 
 - [ ] **Step 5: `README.md`の骨組み（日本語→英語。概要、非公式の明記、インストール、使い方は後のタスクで埋める見出しだけ）と`.github/workflows/ci.yml`を書く**
 
-CI: matrix `macos-15`（arm64）・`ubuntu-latest`・`windows-latest`、`astral-sh/setup-uv`、`uv sync --all-extras --dev`（Windows/ubuntuでは`mlx` extraは解決時に自動で外れる）、`uv run ruff check .`、`uv run ruff format --check .`、`uv run pytest -m "not real_model"`。
+CI: matrix `macos-15`（arm64）・`ubuntu-latest`・`windows-latest`、`astral-sh/setup-uv`、`uv sync --extra mlx --extra onnx --extra convert --dev`（`eval` extraはjacerの辞書依存が重いのでCIでは入れない。Windows/ubuntuでは`mlx` extraは解決時に自動で外れる）、`uv run ruff check .`、`uv run ruff format --check .`、`uv run pytest -m "not real_model"`。
 
 - [ ] **Step 6: テストとlintが通ることを確認**
 
