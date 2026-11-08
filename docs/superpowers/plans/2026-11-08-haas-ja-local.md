@@ -715,7 +715,7 @@ def test_quantize_int8_runs_on_tiny(tiny_nemo, tmp_path): ...  # int8/ が出来
 
 **Files:**
 - Create: `docs/model-cards/mlx/README.md`, `docs/model-cards/onnx/README.md`（骨組み。数値はTask 13）
-- Modify: `README.md`, `/Users/notch_man/workspace/basyauma/docs/repositories.md`
+- Modify: `README.md`, ワークスペース直下の`docs/repositories.md`（このリポジトリの外）
 
 - [ ] **Step 1: MLX版のモデルカードを書く** `docs/model-cards/mlx/README.md`
 
