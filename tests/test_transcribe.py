@@ -1,0 +1,149 @@
+import sys
+
+import numpy as np
+import pytest
+
+import haas_ja_local
+from haas_ja_local.decode import TimedToken
+from haas_ja_local.transcribe import Transcript, load_model, transcribe
+
+SR = 16000
+
+
+@pytest.fixture(scope="module")
+def tiny(tiny_nemo):
+    return load_model(tiny_nemo)
+
+
+class CountingBackend:
+    """encodeの呼び出しごとに入力長を記録する代理。他の属性は元のバックエンドへ渡す。"""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.encoded_frames: list[int] = []
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+    def encode(self, mel, n_frames):
+        self.encoded_frames.append(n_frames)
+        return self._inner.encode(mel, n_frames)
+
+
+def test_load_model_detects_torch_for_nemo(tiny_nemo):
+    from haas_ja_local.torch_model import HaasTorch
+
+    backend, tokenizer = load_model(tiny_nemo)
+    assert isinstance(backend, HaasTorch)
+    assert tokenizer.vocab_size == 16
+
+
+def test_load_model_missing_path_raises_file_not_found(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_model(tmp_path / "missing.nemo")
+
+
+def test_load_model_unknown_directory_raises_file_not_found(tmp_path):
+    with pytest.raises(FileNotFoundError, match=r"model\.safetensors"):
+        load_model(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("layout", "module", "extra"),
+    [
+        ("model.safetensors", "mlx", "mlx"),
+        ("fp32", "onnxruntime", "onnx"),
+        ("int8", "onnxruntime", "onnx"),
+    ],
+)
+def test_load_model_missing_backend_message(tmp_path, monkeypatch, layout, module, extra):
+    if layout.endswith(".safetensors"):
+        (tmp_path / layout).write_bytes(b"")
+    else:
+        (tmp_path / layout).mkdir()
+    monkeypatch.setitem(sys.modules, module, None)  # importをImportErrorにする
+    with pytest.raises(ImportError, match=rf"pip install 'haas-ja-local\[{extra}\]'"):
+        load_model(tmp_path)
+
+
+def test_load_model_missing_torch_message(tiny_nemo, monkeypatch):
+    monkeypatch.setitem(sys.modules, "torch", None)
+    monkeypatch.delitem(sys.modules, "haas_ja_local.torch_model", raising=False)
+    with pytest.raises(ImportError, match=r"pip install 'haas-ja-local\[convert\]'"):
+        load_model(tiny_nemo)
+
+
+def test_load_model_explicit_backend_overrides_detection(tiny_nemo, monkeypatch):
+    # .nemoでもbackend="onnx"ならonnxを読みに行く（ここではonnxruntimeが無い扱いで止める）
+    monkeypatch.setitem(sys.modules, "onnxruntime", None)
+    with pytest.raises(ImportError, match=r"haas-ja-local\[onnx\]"):
+        load_model(tiny_nemo, backend="onnx")
+
+
+def test_load_model_rejects_unknown_backend(tiny_nemo):
+    with pytest.raises(ValueError, match="backend"):
+        load_model(tiny_nemo, backend="tensorflow")
+
+
+def test_transcribe_too_short_returns_empty(tiny):
+    backend, tokenizer = tiny
+    result = transcribe(backend, tokenizer, np.zeros(100, np.float32))
+    assert result == Transcript("", (), ())
+
+
+def test_transcribe_silence_does_not_raise(tiny):
+    backend, tokenizer = tiny
+    result = transcribe(backend, tokenizer, np.zeros(3 * SR, np.float32))
+    assert isinstance(result, Transcript)
+    assert len(result.tokens) == len(result.offsets)
+    assert all(o == 0.0 for o in result.offsets)
+
+
+def test_transcribe_short_audio_is_one_pass(tiny):
+    backend, tokenizer = tiny
+    counting = CountingBackend(backend)
+    audio = np.random.default_rng(0).standard_normal(int(SR * 3.5)).astype(np.float32)
+    transcribe(counting, tokenizer, audio)
+    assert counting.encoded_frames == [int(SR * 3.5) // 160 + 1]
+
+
+def test_longform_offsets_increase(tiny):
+    backend, tokenizer = tiny
+    counting = CountingBackend(backend)
+    audio = np.random.default_rng(0).standard_normal(int(SR * 3.5)).astype(np.float32)
+    result = transcribe(counting, tokenizer, audio, longform_threshold_seconds=1.0)
+    # 1秒ごとに4断片（最後は0.5秒）に分かれ、断片ごとにencodeする
+    assert counting.encoded_frames == [SR // 160 + 1] * 3 + [SR // 2 // 160 + 1]
+    assert len(result.offsets) == len(result.tokens)
+    assert list(result.offsets) == sorted(result.offsets)
+    assert set(result.offsets) <= {0.0, 1.0, 2.0, 3.0}
+
+
+def test_longform_joins_stripped_chunk_texts_and_offsets(tiny, monkeypatch):
+    backend, tokenizer = tiny
+    # 断片ごとに決まったトークンを返すgreedyに差し替え、テキストの連結とoffsetの付け方を確かめる
+    pieces = iter([[TimedToken(3, 0, 1)], [], [TimedToken(5, 2, 1), TimedToken(6, 4, 0)], [TimedToken(7, 1, 2)]])
+    # パッケージ属性のtranscribeは関数なので、モジュールはsys.modulesから取る
+    monkeypatch.setattr(sys.modules["haas_ja_local.transcribe"], "greedy_tdt", lambda b, e: next(pieces))
+    audio = np.random.default_rng(0).standard_normal(int(SR * 3.5)).astype(np.float32)
+    result = transcribe(backend, tokenizer, audio, longform_threshold_seconds=1.0)
+    assert [t.id for t in result.tokens] == [3, 5, 6, 7]
+    assert result.offsets == (0.0, 2.0, 2.0, 3.0)
+    expected = "".join(tokenizer.decode(ids).strip() for ids in ([3], [], [5, 6], [7]))
+    assert result.text == expected
+
+
+def test_package_exports_public_api():
+    for name in ("__version__", "HaasConfig", "TimedToken", "Transcript", "load_audio", "load_model", "transcribe"):
+        assert hasattr(haas_ja_local, name), name
+
+
+def test_importing_package_does_not_import_heavy_backends():
+    import subprocess
+
+    code = (
+        "import sys, haas_ja_local\n"
+        "heavy = [m for m in ('torch', 'mlx', 'onnxruntime') if m in sys.modules]\n"
+        "assert not heavy, heavy\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)
