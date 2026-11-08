@@ -7,6 +7,10 @@ convert/mlx.pyが書いたmodel.safetensorsを`load_weights(strict=True)`でそ�
 精度: 既定ではエンコーダの行列積・畳み込みをbf16で行い、LayerNorm・BatchNorm・softmaxはfloat32で計算する。
 予測ネットワーク（KDA）とjointは重みも計算もすべてfloat32。`compute_dtype=mx.float32`で全体をfloat32にできる。
 
+量子化版: config.jsonにquantizationがあれば、線形層をすべてnn.QuantizedLinear（affine）にしてから読む。
+畳み込み・正規化・埋め込みは量子化しない。scales・biasesは上と同じ方針のdtype（エンコーダはcompute_dtype、
+予測ネットワークとjointはfloat32）で持ち、行列積の出力は入力と同じdtypeになる。
+
 環境変数: このモジュールはimport時に`MLX_ENABLE_TF32`が未設定なら"0"にする（設定済みの値は変えない）。
 Neural Acceleratorを持つGPU（M5など）で、上のfloat32の計算がTF32に落ちないようにするため。
 TF32を使うには、このモジュールより前に`MLX_ENABLE_TF32=1`を設定する。M5 MaxのFLEURS 100発話では、
@@ -33,7 +37,7 @@ except ImportError as e:  # pragma: no cover - mlxはmacOSのextra
     raise ImportError("the mlx backend needs mlx (Apple Silicon macOS): pip install 'haas-ja-local[mlx]'") from e
 
 from haas_ja_local.architecture import KDA_L2_EPS, KDA_RMS_EPS, LAYER_NORM_EPS, encoded_length, subsampling_stages
-from haas_ja_local.config import HaasConfig
+from haas_ja_local.config import HaasConfig, QuantizationConfig
 from haas_ja_local.decode import Backend
 
 # ---------------------------------------------------------------------------
@@ -417,6 +421,19 @@ class HaasModule(nn.Module):
         self.joint = Joint(config)
 
 
+def quantize_linear_layers(module: nn.Module, quantization: QuantizationConfig) -> None:
+    """moduleのnn.Linearをすべてnn.QuantizedLinear（affine）に置き換える。変換器と読み込みで共通に使う。"""
+    if quantization.targets != "linear":  # pragma: no cover - QuantizationConfigが検査済み
+        raise ValueError(f"unsupported quantization targets {quantization.targets!r}")
+    nn.quantize(
+        module,
+        group_size=quantization.group_size,
+        bits=quantization.bits,
+        mode="affine",
+        class_predicate=lambda _path, m: isinstance(m, nn.Linear),
+    )
+
+
 # エンコーダのうち、compute_dtypeに関係なくfloat32で持つ部分（正規化）
 _FLOAT32_ENCODER_PARTS = frozenset(
     {"norm_feed_forward1", "norm_self_att", "norm_conv", "norm_feed_forward2", "norm_out", "batch_norm"}
@@ -428,6 +445,13 @@ def _weight_dtype(key: str, compute_dtype: mx.Dtype) -> mx.Dtype:
     if key.startswith("encoder.") and _FLOAT32_ENCODER_PARTS.isdisjoint(key.split(".")):
         return compute_dtype
     return mx.float32
+
+
+def _cast_weight(key: str, value: mx.array, compute_dtype: mx.Dtype) -> mx.array:
+    """浮動小数点の重みは_weight_dtypeへ変える。量子化した重み（uint32に詰めた値）は変えない。"""
+    if not mx.issubdtype(value.dtype, mx.floating):
+        return value
+    return value.astype(_weight_dtype(key, compute_dtype))
 
 
 # Metalバッファのキャッシュの既定の上限（1GiB）。33.8分の音声で、上限なしでは約12GBまで増えた
@@ -463,6 +487,7 @@ class HaasMLX(Backend):
         """convert-mlxが書いたディレクトリ（config.json・model.safetensors）を読む。
 
         キーの過不足・形状違いはload_weights(strict=True)がValueErrorにする。
+        config.jsonにquantizationがあれば、線形層を量子化した木を作ってから読む（量子化済みの値はそのまま使う）。
 
         cache_limit_bytes: mlxが解放後も再利用のために持つMetalバッファのキャッシュの上限（プロセス全体の設定）。
         発話や断片ごとに長さが違うとキャッシュが再利用されずに増え続ける（mlxの既定の上限は搭載メモリ並み）ため、
@@ -471,8 +496,10 @@ class HaasMLX(Backend):
         model_dir = Path(model_dir)
         config = HaasConfig.from_json(model_dir / "config.json")
         module = HaasModule(config)
+        if config.quantization is not None:
+            quantize_linear_layers(module, config.quantization)
         weights = mx.load(str(model_dir / "model.safetensors"))
-        module.load_weights([(k, v.astype(_weight_dtype(k, compute_dtype))) for k, v in weights.items()], strict=True)
+        module.load_weights([(k, _cast_weight(k, v, compute_dtype)) for k, v in weights.items()], strict=True)
         module.eval()
         mx.eval(module.parameters())
         if cache_limit_bytes is not None:

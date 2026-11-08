@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from haas_ja_local.audio import load_audio
-from haas_ja_local.config import HaasConfig
+from haas_ja_local.config import QUANTIZATION_BITS, QUANTIZATION_GROUP_SIZES, HaasConfig, QuantizationConfig
 from haas_ja_local.pipeline import load_model, token_records, transcribe
 
 PROG = "haas-ja-local"
@@ -33,6 +33,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p = commands.add_parser("convert-mlx", help="convert the original .nemo checkpoint to an MLX model directory")
     p.add_argument("--nemo", type=Path, required=True, help="path to Haas-ja-v1.0.nemo")
     p.add_argument("--out", type=Path, required=True, help="output directory")
+    p.add_argument(
+        "--quantize",
+        type=int,
+        choices=QUANTIZATION_BITS,
+        help="quantize every linear layer to this many bits (MLX affine; needs mlx on Apple Silicon macOS)",
+    )
+    p.add_argument(
+        "--group-size",
+        type=int,
+        choices=QUANTIZATION_GROUP_SIZES,
+        help="with --quantize: elements sharing one scale and bias (default 64)",
+    )
 
     p = commands.add_parser("convert-onnx", help="convert the original .nemo checkpoint to an ONNX model directory")
     p.add_argument("--nemo", type=Path, required=True, help="path to Haas-ja-v1.0.nemo")
@@ -74,13 +86,17 @@ def _run_convert_mlx(args: argparse.Namespace) -> int:
     if not args.nemo.is_file():
         print(f"{PROG}: error: .nemo file not found: {args.nemo}", file=sys.stderr)
         return 1
+    quantization = None
+    if args.quantize is not None:
+        quantization = QuantizationConfig(bits=args.quantize, group_size=args.group_size or 64)
     try:
-        convert_nemo_to_mlx(args.nemo, args.out)
+        convert_nemo_to_mlx(args.nemo, args.out, quantization=quantization)
     except ImportError as e:
-        print(
-            f"{PROG}: error: conversion needs torch and safetensors: pip install 'haas-ja-local[convert]' ({e})",
-            file=sys.stderr,
-        )
+        if quantization is None:
+            need, extras = "torch and safetensors", "convert"
+        else:
+            need, extras = "torch, safetensors and mlx", "convert,mlx"
+        print(f"{PROG}: error: conversion needs {need}: pip install 'haas-ja-local[{extras}]' ({e})", file=sys.stderr)
         return 1
     except ValueError as e:
         print(f"{PROG}: error: {e}", file=sys.stderr)
@@ -89,6 +105,8 @@ def _run_convert_mlx(args: argparse.Namespace) -> int:
     for name in CONVERTED_FILES:
         print(args.out / name)
     print(f"source_sha256: {config.source_sha256}")
+    if config.quantization is not None:
+        print(f"quantization: {config.quantization.bits}bit, group_size {config.quantization.group_size}")
     return 0
 
 
@@ -121,11 +139,20 @@ def _run_convert_onnx(args: argparse.Namespace) -> int:
     return 0
 
 
+def _utf8_stdout_on_windows() -> None:
+    """Windowsの標準出力（既定はcp932など）をUTF-8にする。書けない文字は置き換えて落ちないようにする。"""
+    if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    _utf8_stdout_on_windows()
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command == "convert-onnx" and args.exclude_decoder and not args.int8:
         parser.error("--exclude-decoder requires --int8")
+    if args.command == "convert-mlx" and args.group_size is not None and args.quantize is None:
+        parser.error("--group-size requires --quantize")
     if args.command == "transcribe":
         return _run_transcribe(args)
     if args.command == "convert-mlx":

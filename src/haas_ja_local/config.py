@@ -29,6 +29,30 @@ _YAML_INT_KEYS = {
 }
 
 
+# MLX量子化版で使える値（mlx.core.quantizeのaffineモードのうち、このパッケージで扱うもの）
+QUANTIZATION_BITS = (4, 8)
+QUANTIZATION_GROUP_SIZES = (32, 64, 128)
+
+
+@dataclass(frozen=True)
+class QuantizationConfig:
+    """MLX量子化版の設定。線形層の重みだけをaffine量子化する（targets="linear"）。"""
+
+    bits: int
+    group_size: int = 64
+    targets: str = "linear"
+
+    def __post_init__(self) -> None:
+        if self.bits not in QUANTIZATION_BITS:
+            raise ValueError(f"quantization bits must be one of {QUANTIZATION_BITS}, got {self.bits}")
+        if self.group_size not in QUANTIZATION_GROUP_SIZES:
+            raise ValueError(
+                f"quantization group_size must be one of {QUANTIZATION_GROUP_SIZES}, got {self.group_size}"
+            )
+        if self.targets != "linear":
+            raise ValueError(f"quantization targets must be 'linear', got {self.targets!r}")
+
+
 @dataclass(frozen=True)
 class HaasConfig:
     sample_rate: int = 16000
@@ -55,6 +79,8 @@ class HaasConfig:
     max_symbols: int = 10
     source_repo: str = "third-intelligence/Haas-ja-v1.0"
     source_sha256: str = ""
+    # MLX量子化版だけが持つ。Noneならconfig.jsonに書かない（bf16版・ONNX版は従来と同じ内容）
+    quantization: QuantizationConfig | None = None
 
     @property
     def blank_id(self) -> int:
@@ -73,12 +99,16 @@ class HaasConfig:
     def to_json(self, path: Path) -> None:
         data = asdict(self)
         data["durations"] = list(self.durations)
+        if self.quantization is None:
+            del data["quantization"]
         Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     @classmethod
     def from_json(cls, path: Path) -> HaasConfig:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         data["durations"] = tuple(data["durations"])
+        if data.get("quantization") is not None:
+            data["quantization"] = QuantizationConfig(**data["quantization"])
         return cls(**data)
 
     @classmethod

@@ -58,7 +58,8 @@ class HaasONNX(Backend):
     def load(cls, model_dir: Path, *, variant: str | None = None, threads: int | None = None) -> HaasONNX:
         """model_dir（config.json・preprocessor.npzとfp32/かint8/を含む）を読む。
 
-        variant: "fp32"か"int8"。Noneならfp32/があればfp32、無ければint8（int8のCERはまだ測っていない）。
+        variant: "fp32"か"int8"。Noneならfp32/があればfp32、無ければint8。
+                 int8はFLEURSのCERが公表値から0.3ポイントを超えて悪化した（docs/verification/2026-11-08-mac-onnx.md）。
         threads: ONNX Runtimeのintra-opスレッド数。Noneなら既定（物理コア数）。
         """
         model_dir = Path(model_dir)

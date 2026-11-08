@@ -348,3 +348,13 @@ def test_cli_convert_onnx_missing_nemo(tmp_path, capsys):
 def test_cli_exclude_decoder_requires_int8(tiny_nemo, tmp_path):
     with pytest.raises(SystemExit):
         main(["convert-onnx", "--nemo", str(tiny_nemo), "--out", str(tmp_path / "o"), "--exclude-decoder"])
+
+
+def test_export_without_int8_removes_stale_int8(tiny_nemo, tmp_path):
+    # 前回の--int8で残ったint8/を、loadが新しいfp32と食い違ったまま読まないようにする
+    out = tmp_path / "onnx"
+    assert main(["convert-onnx", "--nemo", str(tiny_nemo), "--out", str(out), "--int8"]) == 0
+    assert (out / "int8").is_dir()
+    export_onnx(tiny_nemo, out)
+    assert not (out / "int8").exists()
+    assert {p.name for p in out.iterdir()} == ROOT_FILES | {"fp32"}
