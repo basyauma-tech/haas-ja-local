@@ -18,29 +18,24 @@ tags:
   - fastconformer
 ---
 
-<!-- 骨組み。数値と確認結果はTask 12（x86_64での検証）とTask 13（公開）で埋める。TODOが残っている間は公開しない。 -->
-
 # Haas-ja-v1.0-onnx
 
 [English version below](#english)
 
 **非公式の変換物です。** [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)のONNX版です。Third Intelligence, Inc.とは提携・承認・後援の関係にありません。
 
-fp32は元のbf16をfloat32化。int8はONNX Runtimeで動的量子化した8ビット整数版。Hugging Face分類はquantizedですが、量子化はint8のみ。
+fp32は元のbf16をfloat32化。int8はONNX Runtimeの動的量子化版です。Hugging Face上の分類はquantizedですが、量子化はint8のみ。**既定はfp32、int8は参考扱い**です。int8はFLEURSのCER strictが公表値から+0.38ポイントで、合格基準の0.3ポイント以内を満たしませんでした。
 
 ## 概要・環境
 
-- ONNX Runtime対応CPU（macOS・Linux・Windows）。NeMo・CUDA・Triton不要。推論コード: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local)（別途インストール）。
-- Python >=3.12,<3.13。onnxruntime・numpy・sentencepiece・soundfile・soxrに依存。torch不要。
-- TODO(Task 12/13): 検証機種・CPU・OS・onnxruntimeの版、未検証環境。
-- TODO(Task 12/13): `fp32/encoder.onnx`・`fp32/encoder.onnx.data`の実サイズ。
-- TODO(Task 12/13): int8のper-channel動的量子化設定（`reduce_range`・デコーダのfp32維持）、`.data`の有無・サイズ。
-
-TODO(Task 12/13): fp32/int8の既定と理由。
+- ONNX Runtime対応CPU向け。NeMo・CUDA・Triton不要。推論コードは別途[haas-ja-local](https://github.com/basyauma-tech/haas-ja-local)を使用。
+- Python >=3.12,<3.13。実行時依存はonnxruntime・numpy・sentencepiece・soundfile・soxr。torch不要。
+- 計測はApple SiliconのApple M5 Max（128GB）のCPUのみ。Superコア6・Performanceコア12、macOS 27.2（26B123）、Python 3.12.15、onnxruntime 1.31.1（`CPUExecutionProvider`、`ORT_ENABLE_ALL`）、numpy 2.5.4。
+- x86_64での速度・精度、Linux・Windowsは未計測。int8の精度は命令セットで変わる可能性あり。
 
 ## 使い方
 
-`hf`は`huggingface_hub`に付属。
+`hf`は`huggingface_hub`に付属（必要なら`pip install huggingface_hub`）。
 
 ```sh
 pip install "haas-ja-local[onnx] @ git+https://github.com/basyauma-tech/haas-ja-local"
@@ -57,24 +52,58 @@ result = transcribe(backend, tokenizer, load_audio("audio.wav"))
 print(result.text)
 ```
 
-CLI（`--threads`はONNX Runtimeのスレッド数）:
+CLI（`DIR`はモデルディレクトリ、`AUDIO`は音声ファイル。次の例ではそれぞれ指定済み）:
 
 ```sh
-haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --threads 4
+haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant fp32 --threads 4
+haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant int8 --threads 4
 ```
 
-- `fp32/`があればfp32、それ以外はint8。int8は`--variant int8`か`HaasONNX.load(path, variant="int8")`で指定。TODO(Task 12/13): int8のCER測定後に既定を見直す。
-- 長時間音声・時刻はMLX版と同じ。30秒超を約30秒ごとに分割。`--json --timestamps`でトークン時刻を出力。
-
-TODO(Task 12/13): sherpa-onnxの動作確認（動かなければ「未確認」）。
+- `--threads`はONNX Runtimeのスレッド数。`fp32/`があれば既定はfp32、それ以外はint8。
+- 入力はsoundfile対応形式（WAV・FLACなど）。複数チャンネルを平均してモノラル化し、soxrで16kHzへ変換。
+- 30秒超は逐次分割。各断片の先頭から30秒±2秒内で、最も静かな0.1秒窓の中心を切断点とし、認識結果を連結。
+- `--json --timestamps`で1ファイル1行のJSONとトークン開始・終了時刻を出力。sherpa-onnxでの動作は未確認。
 
 ## 精度
 
-TODO(Task 12/13): asr-ja-bench v1.1のFLEURS・JVNVでfp32/int8のCER strict/flex/kana、公表値、差を表にする。条件: 機種・CPU・OS・onnxruntime版・スレッド数・jacer v1.2.0。未測定一覧とtorch（float32）との数値一致も記載。
+[asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench)v1.1、[jacer](https://github.com/third-intelligence/jacer)v1.2.0。単位は%。FLEURSは650発話（2.36時間）、JVNVは1,375発話（3.33時間）。
+
+| 版 | サブセット | CER strict | CER flex | CER kana | 公表値strict | 差（ポイント） | 判定 |
+|---|---|---:|---:|---:|---:|---:|---|
+| fp32 | FLEURS | 3.69 | 3.02 | 2.38 | 3.65〜3.67 | +0.02 | 合格 |
+| fp32 | JVNV | 4.52 | 3.06 | 2.25 | 4.50〜4.53 | 0.00 | 合格 |
+| int8 | FLEURS | 4.05 | 3.35 | 2.50 | 3.65〜3.67 | +0.38 | 不合格 |
+| int8 | JVNV | 4.43 | 3.16 | 2.33 | 4.50〜4.53 | -0.07 | 合格 |
+
+- 上記M5 MaxのCPU、バッチ1、8スレッド。発話ごとに認識し、サブセット全体でCERを計算（マイクロ平均）。句読点・空白を除外。全発話30秒以下で分割なし。
+- データは`rebuild.py`で再構築し、書き起こしのハッシュを照合済み。JVNVの16kHz化は想定のffmpeg 7.1ではなく9.0.2のため、公式音声と微差の可能性あり。
+- 公表値は公式のNeMo・bf16・H200での測定。モデルカードと公開記事の差を幅で表示。差は近い端との差、範囲内は0。合格基準は公表値との差0.3ポイント以内。flex・kanaの公表値は未照合で、差・合否は判定していない。
+- 精度調整なし。int8でデコーダをfp32にしてもFLEURSのCER strictは4.09%で改善せず。配布int8はデコーダも量子化。
+- 未測定: JSUT・TEDxJP-10K・SpeechBSD（全サブセットの重み付きCERなし）。
+
+詳細・再現手順: [ONNXの検証記録](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-onnx.md)、[PyTorch参照実装の検証](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-numerics.md)。
+
+## 実装の確認
+
+fp32とPyTorch参照実装（float32）はFLEURS全650発話で本文が一致。6発話の数値比較では最大誤差がlog-mel 9.54e-07、エンコーダ出力（相対）3.82e-06、結合ネットワーク出力（相対）1.11e-06で、トークン列はすべて一致しました。
+
+PyTorch参照実装自体も第三者のfloat32 ONNXと6発話で比較済み。最大誤差はlog-mel 9.54e-07、エンコーダ（相対）4.36e-06、結合ネットワーク（相対）1.16e-06で、トークン列はすべて一致しました。
 
 ## 速度とメモリ
 
-TODO(Task 12/13): fp32/int8、4スレッド/全コアのRTFx・ピークメモリ表。条件: バッチ1・逐次認識・CPU名・OS。公表RTFx（H200・バッチ512）とは比較不可と明記。
+上記M5 MaxのCPU、バッチ1で逐次認識。FLEURSの先頭3発話をウォームアップとして除いた647発話、2.35時間。モデル・音声読み込みを除く認識時間で集計。GB＝10^9バイト。
+
+| 版 | スレッド数 | RTFx中央値 | RTFx合計 | ピークRSS |
+|---|---:|---:|---:|---:|
+| fp32 | 4 | 72.4 | 72.7 | 3.24GB |
+| fp32 | 12 | 66.7 | 66.4 | 3.24GB |
+| int8 | 4 | 70.0 | 69.8 | 1.41GB |
+| int8 | 12 | 84.3 | 84.3 | 1.40GB |
+
+- RTFx合計は合計音声÷合計処理時間。ピークRSSは`getrusage`の`ru_maxrss`。
+- 12スレッドは全コアではなく、Super・Performanceコアにまたがる。fp32は4スレッドのほうが速く、再実行でも同じ傾向。原因は未調査。
+- CLIのfp32で33.8分（2,026.5秒）を68分割: 起動・モデル読み込み込み23.30秒（RTFx 87.0）、最大RSS 3.52GB。
+- 公表RTFxはH200・バッチ512のため比較不可。x86の速度と精度、4・12以外のスレッド数での速度は未計測。
 
 ## 変換方法
 
@@ -88,25 +117,38 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 |---|---|
 | 変換元 | [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)の`Haas-ja-v1.0.nemo` |
 | リビジョン | `660728d39019e5e065046154beca44ac9a66a540`（2026-11-08取得） |
-| SHA-256 | `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa` |
+| SHA-256 | `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`（`config.json`の`source_sha256`） |
 | サイズ | 1,232,384,000バイト |
-| 変換ツール | TODO(Task 12/13): haas-ja-localの版とコミット |
+| 変換ツール | haas-ja-local 0.1.0、書き出し`e4968f2`、評価・計測`3d1050b` |
+| 書き出し環境 | torch 2.15.0、onnx 1.23.2、onnxruntime 1.31.1 |
 
-TODO(Task 12/13): float32化・トレース方式・int8量子化設定。
+- 元のbf16をfloat32化し、PyTorch参照実装からONNXへ書き出し。
+- int8はper-channel動的量子化、`reduce_range=False`、量子化前の前処理なし。エンコーダ・デコーダとも量子化し、エンコーダ重みは両版とも外部`.data`に保存。
+- `--exclude-decoder`で再書き出しした際、fp32の全ファイルとint8のエンコーダはバイト単位で一致。別の量子化設定は未測定。
 
 ## ファイル一覧
 
-| ファイル | 内容 |
-|---|---|
-| `fp32/encoder.onnx`、`fp32/encoder.onnx.data` | エンコーダのグラフ・外部重み |
-| `fp32/decoder_joint.onnx` | デコーダ＋結合ネットワーク |
-| `int8/encoder.onnx`、`int8/encoder.onnx.data`、`int8/decoder_joint.onnx` | int8版（`.data`の有無は上記TODOで確認） |
-| `config.json`、`tokenizer.model` | モデル設定・トークナイザ |
-| `preprocessor.npz` | 前処理用の窓・メルフィルタバンク |
-| `SHA256SUMS` | ファイルのSHA-256一覧 |
-| `LICENSE`、`NOTICE` | ライセンス・帰属情報 |
+サイズはバイト。SHA-256は各版の`SHA256SUMS`から転記。「—」は同ファイルに記載なし。
 
-## 入出力仕様
+| ファイル | サイズ | SHA-256 |
+|---|---:|---|
+| `fp32/encoder.onnx` | 740,878 | `a93c1ac09be3a82cfd7d357affe4c84c2f4746a9f831f1ad04374fb744107adb` |
+| `fp32/encoder.onnx.data` | 2,435,420,160 | `88689ebfe6a760d373598298b56716ca74ffee7f21e23d6a47a28a2557ad20f1` |
+| `fp32/decoder_joint.onnx` | 27,712,720 | `9e1e99ec8d4a0ea43b19f8572b3fd02beae2dfb7f671e2ff975dd0d7428d626a` |
+| `int8/encoder.onnx` | 3,198,708 | `f36c5a24e5a43c58321244b9b396f15f00277a48e93574a2bb79308c17cd3234` |
+| `int8/encoder.onnx.data` | 609,822,464 | `03db20b51fd813f6b694309520621f66ea331dc7769f7679d936237a0abdb27a` |
+| `int8/decoder_joint.onnx` | 7,137,058 | `ba4726a5a72f2673407435750f893d40c8cda04a34ac0a4a71c389802cf62c73` |
+| `fp32/SHA256SUMS` | 248 | — |
+| `int8/SHA256SUMS` | 248 | — |
+| `config.json` | 640 | — |
+| `tokenizer.model` | 279,711 | — |
+| `preprocessor.npz` | 133,686 | — |
+| `LICENSE` | 11,358 | — |
+| `NOTICE` | 741 | — |
+
+共通ファイルはモデル設定、SentencePieceトークナイザ、前処理の窓・メルフィルタバンク、ライセンス・帰属情報。両版のチェックサムは検証済み。
+
+### 入出力仕様
 
 opset 17。Bはバッチ、Tは入力フレーム数、T'はエンコード後のフレーム数。
 
@@ -121,18 +163,18 @@ opset 17。Bはバッチ、Tは入力フレーム数、T'はエンコード後�
 
 ## 制限事項
 
-- 元モデル同様、フィラーが抜けやすく、漢字・かな・数字の表記指定は不可。
-- 無音・雑音で短語を出す可能性あり。
-- 30秒超の分割でCERが悪化。TODO(Task 12/13): ONNXの数値かMLX記録への参照。
-- バッチ1のみ。ストリーミング・話者ラベル・公式Haas-ASRのカスタム語彙は未対応。
+- 元モデル同様、フィラーが抜けやすく、漢字・かな・数字の表記指定は不可。無音・雑音で短語を出す可能性あり。
+- 30秒超の分割でCERが悪化。FLEURS 150発話を連結した33.8分音声のfp32のCER strictは、発話別4.10%、分割後6.39%。分割後のstrict/flex/kanaは6.39/5.70/4.62%でPyTorchと一致し、本文も同一。ONNXの数値誤差による悪化ではない。
+- 同一話者が話し続ける実際の長時間録音は未測定。
+- バッチ1のみ。バッチ2以上は未測定。ストリーミング・話者ラベル・公式Haas-ASRのカスタム語彙は未対応。
 - 時刻は80ms刻みのトークン単位。単語単位ではない。
 
 ## ライセンスと帰属
 
 - 重み・推論コード: Apache-2.0。元重みは[third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)（Copyright Third Intelligence, Inc.）。帰属は`NOTICE`。「Haas」は変換元を示す名称。
 - 参考実装: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)、[third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR)（公式推論パッケージ）、[matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx)、[Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx)はApache-2.0。[flash-linear-attention](https://github.com/fla-org/flash-linear-attention)はMIT。
-- SanamiのONNXは数値比較のみで、重みは再配布しない。配布重みはすべて元の`.nemo`の非公式の変換物。
-- [評価セット](https://huggingface.co/datasets/third-intelligence/asr-ja-bench)、[CER計算](https://github.com/third-intelligence/jacer)。FLEURSはCC BY 4.0、JVNVはCC BY-SA 4.0。評価データは同梱・再配布しない。
+- 他者の変換物は再配布していません。SanamiのONNXは数値比較のみ。配布重みは元の`.nemo`の非公式の変換物です。
+- 評価データ: FLEURSはCC BY 4.0、JVNVはCC BY-SA 4.0。同梱・再配布しません。
 
 ---
 
@@ -140,49 +182,86 @@ opset 17。Bはバッチ、Tは入力フレーム数、T'はエンコード後�
 
 **This is an unofficial conversion** of [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) to ONNX. It is not affiliated with, endorsed by, or sponsored by Third Intelligence, Inc.
 
-fp32: original bf16 cast to float32. int8: ONNX Runtime dynamic 8-bit quantization. Hugging Face classification: quantized; only int8 is quantized.
+fp32 casts the original bf16 to float32; int8 uses ONNX Runtime dynamic quantization. Hugging Face classifies this as quantized, but only int8 is quantized. **fp32 is the default; int8 is for reference.** int8 FLEURS CER strict was +0.38 points above the published range, exceeding the 0.3-point acceptance threshold.
 
 ## Overview and requirements
 
-- ONNX Runtime CPU, macOS/Linux/Windows; no NeMo/CUDA/Triton. Install separate inference code: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local).
-- Python >=3.12,<3.13; onnxruntime, numpy, sentencepiece, soundfile, soxr. No torch.
-- TODO(Task 12/13): tested machine, CPU, OS, onnxruntime version; untested environments.
-- TODO(Task 12/13): actual `fp32/encoder.onnx`/`fp32/encoder.onnx.data` size.
-- TODO(Task 12/13): int8 per-channel dynamic quantization settings (`reduce_range`, fp32 decoder), `.data` presence and sizes.
-
-TODO(Task 12/13): fp32/int8 default and rationale.
+- For ONNX Runtime CPUs; no NeMo, CUDA or Triton. Install separate inference code: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local).
+- Python >=3.12,<3.13; runtime dependencies: onnxruntime, numpy, sentencepiece, soundfile, soxr. No torch needed.
+- Measured only on the CPU of an Apple Silicon Apple M5 Max (128 GB): 6 Super and 12 Performance cores, macOS 27.2 (26B123), Python 3.12.15, onnxruntime 1.31.1 (`CPUExecutionProvider`, `ORT_ENABLE_ALL`), numpy 2.5.4.
+- Speed and accuracy on x86_64, Linux and Windows are unmeasured. int8 accuracy may depend on the instruction set.
 
 ## Usage
 
-`hf` comes with `huggingface_hub`.
+`hf` comes with `huggingface_hub` (`pip install huggingface_hub` if needed).
 
 ```sh
 pip install "haas-ja-local[onnx] @ git+https://github.com/basyauma-tech/haas-ja-local"
 hf download basyauma-tech/Haas-ja-v1.0-onnx --local-dir Haas-ja-v1.0-onnx
-haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --threads 4
 ```
+
+Python:
 
 ```python
 from haas_ja_local import load_audio, load_model, transcribe
 
 backend, tokenizer = load_model("Haas-ja-v1.0-onnx")
-print(transcribe(backend, tokenizer, load_audio("audio.wav")).text)
+result = transcribe(backend, tokenizer, load_audio("audio.wav"))
+print(result.text)
 ```
 
-`--threads` sets ONNX Runtime threads.
+CLI (`DIR` is the model directory and `AUDIO` is the audio file; both are filled in below):
 
-- Uses fp32 if `fp32/` exists, otherwise int8. Select int8 with `--variant int8` or `HaasONNX.load(path, variant="int8")`. TODO(Task 12/13): revisit the default after measuring int8 CER.
-- Long audio/times match MLX: split audio above 30 seconds into ~30-second pieces; `--json --timestamps` emits token times.
+```sh
+haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant fp32 --threads 4
+haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant int8 --threads 4
+```
 
-TODO(Task 12/13): verify sherpa-onnx execution; otherwise mark "not checked".
+- `--threads` sets ONNX Runtime threads. Defaults to fp32 when `fp32/` exists, otherwise int8.
+- Input: soundfile formats (WAV, FLAC, etc.). Channels are averaged to mono; soxr resamples to 16 kHz.
+- Audio above 30 seconds is split sequentially at the centre of the quietest 0.1-second window within 30 ± 2 seconds of each piece's start. Results are joined.
+- `--json --timestamps` emits one JSON line per file with token start/end times. Execution with sherpa-onnx is unverified.
 
 ## Accuracy
 
-TODO(Task 12/13): asr-ja-bench v1.1 FLEURS/JVNV table: fp32/int8 CER strict/flex/kana, published values, differences. Include machine/CPU/OS/onnxruntime/threads/jacer v1.2.0, unmeasured cases, torch float32 agreement.
+[asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench) v1.1, [jacer](https://github.com/third-intelligence/jacer) v1.2.0; values in %. FLEURS: 650 utterances (2.36 hours); JVNV: 1,375 utterances (3.33 hours).
+
+| Variant | Subset | CER strict | CER flex | CER kana | Published strict | Difference (points) | Result |
+|---|---|---:|---:|---:|---:|---:|---|
+| fp32 | FLEURS | 3.69 | 3.02 | 2.38 | 3.65–3.67 | +0.02 | Pass |
+| fp32 | JVNV | 4.52 | 3.06 | 2.25 | 4.50–4.53 | 0.00 | Pass |
+| int8 | FLEURS | 4.05 | 3.35 | 2.50 | 3.65–3.67 | +0.38 | Fail |
+| int8 | JVNV | 4.43 | 3.16 | 2.33 | 4.50–4.53 | -0.07 | Pass |
+
+- M5 Max CPU setup above, batch 1, 8 threads. Utterances transcribed individually; CER computed across each subset (micro-average), ignoring punctuation/spaces. All utterances ≤30 seconds; no splitting.
+- Data rebuilt with `rebuild.py`; transcript hashes verified. JVNV resampling to 16 kHz used ffmpeg 9.0.2 instead of the expected 7.1, so audio may differ slightly.
+- Published values use official NeMo, bf16 and H200. Model-card/blog differences form the range. Differences use the nearer endpoint, or 0 within the range. Acceptance threshold: within 0.3 points of published values. Published flex/kana values were not compared; no differences or pass/fail results are assigned to them.
+- No accuracy tuning. Keeping the int8 decoder in fp32 gave FLEURS CER strict 4.09%, with no improvement. The distributed int8 variant also quantizes the decoder.
+- Unmeasured: JSUT, TEDxJP-10K and SpeechBSD (no weighted CER across all subsets).
+
+Details/reproduction (Japanese): [ONNX verification](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-onnx.md), [PyTorch reference verification](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-numerics.md).
+
+## Implementation verification
+
+fp32 and the PyTorch reference (float32) produced identical text for all 650 FLEURS utterances. On 6 utterances, maximum errors were 9.54e-07 for log-mel, 3.82e-06 for encoder output (relative), and 1.11e-06 for joint output (relative); all token sequences matched.
+
+The PyTorch reference itself was also compared against third-party float32 ONNX on 6 utterances: maximum errors were 9.54e-07 for log-mel, 4.36e-06 for encoder output (relative), and 1.16e-06 for joint output (relative); all token sequences matched.
 
 ## Speed and memory
 
-TODO(Task 12/13): fp32/int8 RTFx/peak memory, 4 threads/all cores; batch 1, sequential, CPU/OS. Published H200/batch 512 RTFx is not comparable.
+M5 Max CPU setup above, batch 1, sequential recognition. 647 FLEURS utterances, 2.35 hours, excluding the first 3 warm-ups. Recognition timing excludes model/audio loading. GB = 10^9 bytes.
+
+| Variant | Threads | Median RTFx | Aggregate RTFx | Peak RSS |
+|---|---:|---:|---:|---:|
+| fp32 | 4 | 72.4 | 72.7 | 3.24 GB |
+| fp32 | 12 | 66.7 | 66.4 | 3.24 GB |
+| int8 | 4 | 70.0 | 69.8 | 1.41 GB |
+| int8 | 12 | 84.3 | 84.3 | 1.40 GB |
+
+- Aggregate RTFx = total audio / total processing time. Peak RSS uses `getrusage`'s `ru_maxrss`.
+- 12 threads span Super and Performance cores, not all cores. fp32 was faster with 4 threads, including on rerun; the cause is uninvestigated.
+- CLI fp32, 33.8 minutes (2,026.5 seconds), 68 pieces: 23.30 seconds including startup/model loading (RTFx 87.0), maximum RSS 3.52 GB.
+- Published RTFx uses H200, batch 512; not comparable. x86 speed/accuracy and speed with thread counts other than 4 and 12 are unmeasured.
 
 ## Conversion
 
@@ -196,27 +275,40 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 |---|---|
 | Source | `Haas-ja-v1.0.nemo` from [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) |
 | Revision | `660728d39019e5e065046154beca44ac9a66a540` (downloaded 2026-11-08) |
-| SHA-256 | `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa` |
+| SHA-256 | `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa` (`source_sha256` in `config.json`) |
 | Size | 1,232,384,000 bytes |
-| Converter | TODO(Task 12/13): haas-ja-local version and commit |
+| Converter | haas-ja-local 0.1.0; export `e4968f2`, evaluation/measurement `3d1050b` |
+| Export environment | torch 2.15.0, onnx 1.23.2, onnxruntime 1.31.1 |
 
-TODO(Task 12/13): float32 cast, tracing method, int8 quantization settings.
+- Original bf16 cast to float32 and exported from the PyTorch reference to ONNX.
+- int8: per-channel dynamic quantization, `reduce_range=False`, no pre-quantization preprocessing. Both encoder and decoder are quantized; both variants store encoder weights in external `.data` files.
+- Re-exporting with `--exclude-decoder` gave byte-identical fp32 files and int8 encoder files. Other quantization settings are unmeasured.
 
 ## Files
 
-| File | Contents |
-|---|---|
-| `fp32/encoder.onnx`, `fp32/encoder.onnx.data` | Encoder graph and external weights |
-| `fp32/decoder_joint.onnx` | Decoder and joint network |
-| `int8/encoder.onnx`, `int8/encoder.onnx.data`, `int8/decoder_joint.onnx` | int8 variant (`.data` presence pending the TODO above) |
-| `config.json`, `tokenizer.model` | Model configuration and tokenizer |
-| `preprocessor.npz` | Preprocessing window and mel filterbank |
-| `SHA256SUMS` | File SHA-256 checksums |
-| `LICENSE`, `NOTICE` | License and attribution |
+Sizes in bytes. SHA-256 values are copied from each variant's `SHA256SUMS`; “—” means not listed there.
 
-## Input/output specification
+| File | Size | SHA-256 |
+|---|---:|---|
+| `fp32/encoder.onnx` | 740,878 | `a93c1ac09be3a82cfd7d357affe4c84c2f4746a9f831f1ad04374fb744107adb` |
+| `fp32/encoder.onnx.data` | 2,435,420,160 | `88689ebfe6a760d373598298b56716ca74ffee7f21e23d6a47a28a2557ad20f1` |
+| `fp32/decoder_joint.onnx` | 27,712,720 | `9e1e99ec8d4a0ea43b19f8572b3fd02beae2dfb7f671e2ff975dd0d7428d626a` |
+| `int8/encoder.onnx` | 3,198,708 | `f36c5a24e5a43c58321244b9b396f15f00277a48e93574a2bb79308c17cd3234` |
+| `int8/encoder.onnx.data` | 609,822,464 | `03db20b51fd813f6b694309520621f66ea331dc7769f7679d936237a0abdb27a` |
+| `int8/decoder_joint.onnx` | 7,137,058 | `ba4726a5a72f2673407435750f893d40c8cda04a34ac0a4a71c389802cf62c73` |
+| `fp32/SHA256SUMS` | 248 | — |
+| `int8/SHA256SUMS` | 248 | — |
+| `config.json` | 640 | — |
+| `tokenizer.model` | 279,711 | — |
+| `preprocessor.npz` | 133,686 | — |
+| `LICENSE` | 11,358 | — |
+| `NOTICE` | 741 | — |
 
-Opset 17. B is batch size, T is the input frame count, and T' is the encoded frame count.
+Shared files provide model configuration, the SentencePiece tokenizer, preprocessing window/mel filterbank, license and attribution. Both checksum manifests have been verified.
+
+### Input/output specification
+
+Opset 17. B is batch size, T is input frames, and T' is encoded frames.
 
 | Network | Direction | Names, shapes and types |
 |---|---|---|
@@ -225,19 +317,19 @@ Opset 17. B is batch size, T is the input frame count, and T' is the encoded fra
 | Decoder + joint | Input | `encoder_outputs [B,1024,1] float32`, `targets [B,1] int32`, `target_length [B] int32`, `input_states_1/2 [2,B,20480] float32` |
 | Decoder + joint | Output | `outputs [B,1,1,3078] float32` (vocabulary 3072 + blank + duration 5), `prednet_lengths [B] int32`, `output_states_1/2 [2,B,20480] float32` |
 
-`input_states_1` holds the KDA recurrent state, 5×64×64. `input_states_2` holds the q/k/v short conv buffers, 3×320×4, at the beginning; the remainder is 0.
+`input_states_1` holds the KDA recurrent state, 5×64×64. `input_states_2` holds q/k/v short conv buffers, 3×320×4, at the beginning; the remainder is 0.
 
 ## Limitations
 
-- As with the original model, fillers may be omitted; kanji/kana/numeral style cannot be selected.
-- Silence/noise may produce short words.
-- Splitting above 30 seconds raises CER. TODO(Task 12/13): ONNX numbers or reference to the MLX record.
-- Batch 1 only. No streaming, speaker labels or official Haas-ASR custom vocabulary.
-- Token timestamps in 80 ms steps, not word timestamps.
+- As with the original model, fillers may be omitted; kanji/kana/numeral style cannot be selected. Silence/noise may produce short words.
+- Splitting above 30 seconds raises CER. For 150 FLEURS utterances joined into 33.8 minutes, fp32 CER strict was 4.10% individually and 6.39% after splitting. Split strict/flex/kana scores were 6.39/5.70/4.62%, matching PyTorch; text was also identical. The degradation is not due to ONNX numerical error.
+- Real long recordings of one continuous speaker are unmeasured.
+- Batch 1 only; batch sizes ≥2 are unmeasured. No streaming, speaker labels or official Haas-ASR custom vocabulary.
+- Token timestamps use 80 ms steps; they are not word timestamps.
 
 ## License and attribution
 
-- Weights/code: Apache-2.0. Source weights: [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0), Copyright Third Intelligence, Inc. Attribution: `NOTICE`. "Haas" identifies the source.
+- Weights/code: Apache-2.0. Source weights: [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0), Copyright Third Intelligence, Inc. Attribution: `NOTICE`. “Haas” identifies the source.
 - References: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo), [third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR) (official inference package), [matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx), [Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx): Apache-2.0. [flash-linear-attention](https://github.com/fla-org/flash-linear-attention): MIT.
-- Sanami's ONNX is used only for numerical comparison; its weights are not redistributed. All distributed weights are unofficial conversions of the original `.nemo`.
-- [Benchmark](https://huggingface.co/datasets/third-intelligence/asr-ja-bench), [CER library](https://github.com/third-intelligence/jacer). FLEURS: CC BY 4.0; JVNV: CC BY-SA 4.0. Evaluation data is neither included nor redistributed.
+- No third-party conversions are redistributed. Sanami's ONNX is used only for numerical comparison. Distributed weights are unofficial conversions of the original `.nemo`.
+- Evaluation data: FLEURS is CC BY 4.0; JVNV is CC BY-SA 4.0. Neither is included or redistributed.
