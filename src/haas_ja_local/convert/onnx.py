@@ -242,6 +242,7 @@ def export_onnx(nemo: Path, out_dir: Path) -> None:
     """.nemoを読み、out_dir/fp32/とconfig.json・tokenizer.model・preprocessor.npzを書く。
 
     チェックポイントのキーや形状が構成と合わなければ、何も書かずにValueError。
+    書き終えたらout_dir/int8/があれば消す（古いfp32から量子化したものなので）。
     """
     import onnx
 
@@ -294,6 +295,9 @@ def export_onnx(nemo: Path, out_dir: Path) -> None:
 
         _install(fp32, out_dir / "fp32", (*FP32_FILES, SUMS_FILE))
         _install(stage, out_dir, ROOT_FILES)
+    # 前回のint8/は古いfp32から作ったものなので消す（loadが新しいfp32と食い違うint8を読まないように）。
+    # 必要ならこの後にquantize_int8で作り直す
+    shutil.rmtree(out_dir / "int8", ignore_errors=True)
 
 
 def quantize_int8(fp32_dir: Path, out_dir: Path, *, exclude_decoder: bool = False) -> None:
