@@ -25,7 +25,7 @@ tags:
 
 重みは元のbf16の値を保持し、軸の並べ替えと推論に不要な`num_batches_tracked`の除去だけを行います。Hugging Face上の分類はquantizedですが、量子化していません。
 
-線形層を8bitに量子化した版（約0.73GB、準備中）: [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
+線形層を8bitに量子化した版（約0.73GB）: [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
 
 ## 概要・環境
 
@@ -171,7 +171,7 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 
 Original bf16 values are preserved; only tensor axes are rearranged and unused `num_batches_tracked` values removed. Hugging Face classifies it as quantized, but no quantization is applied.
 
-Version with 8-bit linear layers (about 0.73 GB, planned): [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
+Version with 8-bit linear layers (about 0.73 GB): [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
 
 ## Overview and requirements
 
