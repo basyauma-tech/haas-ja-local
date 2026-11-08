@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 DATASET = "third-intelligence/asr-ja-bench"
@@ -30,13 +31,13 @@ def build_command(rebuild_py: Path, *, subsets: list[str], out: Path, jvnv_zip: 
     return command
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--subset", nargs="+", default=["fleurs"], help="subsets to rebuild (default fleurs)")
     parser.add_argument("--jvnv-zip", type=Path, help="jvnv_ver1.zip from the JVNV site (needed for jvnv)")
     parser.add_argument("--out", type=Path, required=True, help="output directory")
     parser.add_argument("--revision", help="dataset revision (default: main)")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if "jvnv" in args.subset and (args.jvnv_zip is None or not args.jvnv_zip.exists()):
         parser.error("--subset jvnv needs --jvnv-zip pointing to jvnv_ver1.zip")

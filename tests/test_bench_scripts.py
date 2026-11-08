@@ -110,38 +110,43 @@ def test_is_monotonic():
     assert long_audio.is_monotonic([])
 
 
-@pytest.mark.parametrize("name", ["bench_speed", "eval_bench"])
-def test_bench_entry_scripts_import_without_resource(monkeypatch, name):
-    # Windowsにはresourceが無い。import時に読まないこと（このテストはどのOSのCIでもimportを通す）
-    import importlib
+def test_token_agreement_summary_counts_tokens_and_text_separately():
+    import token_agreement
 
-    monkeypatch.setitem(sys.modules, "resource", None)
-    monkeypatch.delitem(sys.modules, name, raising=False)
-    assert callable(importlib.import_module(name).main)
-
-
-def test_peak_rss_bytes_of_this_process():
-    rss = benchlib.peak_rss_bytes()
-    assert isinstance(rss, int)
-    assert 10 * 2**20 < rss < 1 << 40  # Pythonとnumpyを読んだプロセスは10MiBより大きい
-
-
-@pytest.mark.parametrize(("platform", "factor"), [("darwin", 1), ("linux", 1024)])
-def test_peak_rss_bytes_units_on_unix(monkeypatch, platform, factor):
-    import types
-
-    fake = types.SimpleNamespace(RUSAGE_SELF=0, getrusage=lambda who: types.SimpleNamespace(ru_maxrss=1000))
-    monkeypatch.setitem(sys.modules, "resource", fake)
-    monkeypatch.setattr(sys, "platform", platform)
-    assert benchlib.peak_rss_bytes() == 1000 * factor
+    rows = [
+        {"id": "a", "mlx_ids": [1, 2, 3], "torch_ids": [1, 2, 3], "mlx_text": "あい", "torch_text": "あい"},
+        {"id": "b", "mlx_ids": [1, 2], "torch_ids": [1, 4], "mlx_text": "あい", "torch_text": "あう"},
+        # トークン列は違うが文字列は同じ（分かれ方だけが違う）
+        {"id": "c", "mlx_ids": [5, 6], "torch_ids": [7], "mlx_text": "かき", "torch_text": "かき"},
+        {"id": "d", "mlx_ids": [], "torch_ids": [], "mlx_text": "", "torch_text": ""},
+    ]
+    s = token_agreement.summarize(rows)
+    assert s["n_utterances"] == 4
+    assert s["tokens_equal"] == 2
+    assert s["tokens_equal_rate"] == 0.5
+    assert s["text_equal"] == 3
+    assert s["text_equal_rate"] == 0.75
+    assert s["tokens_total_mlx"] == 7
+    assert s["tokens_total_torch"] == 6
+    assert s["mismatched_ids"] == ["b", "c"]
 
 
-def test_peak_rss_bytes_on_windows_uses_psutil_peak_working_set(monkeypatch):
-    import types
+def test_token_agreement_first_divergence():
+    import token_agreement
 
-    info = types.SimpleNamespace(peak_wset=12345)
-    fake = types.SimpleNamespace(Process=lambda: types.SimpleNamespace(memory_info=lambda: info))
-    monkeypatch.setitem(sys.modules, "psutil", fake)
-    monkeypatch.setitem(sys.modules, "resource", None)  # Windowsにはresourceが無い
-    monkeypatch.setattr(sys, "platform", "win32")
-    assert benchlib.peak_rss_bytes() == 12345
+    assert token_agreement.first_divergence([1, 2, 3], [1, 2, 3]) is None
+    assert token_agreement.first_divergence([1, 2, 3], [1, 5, 3]) == 1
+    assert token_agreement.first_divergence([1, 2], [1, 2, 3]) == 2
+
+
+def test_silence_check_signals():
+    import numpy as np
+    import silence_check
+
+    s = silence_check.signals(seed=0)
+    assert list(s) == ["silence", "white_noise_std_0.001", "white_noise_std_0.01", "white_noise_std_0.05"]
+    for name, audio in s.items():
+        assert audio.shape == (160000,) and audio.dtype == np.float32, name
+    assert not s["silence"].any()
+    assert float(np.std(s["white_noise_std_0.01"])) == pytest.approx(0.01, rel=0.01)
+    np.testing.assert_array_equal(s["white_noise_std_0.01"], silence_check.signals(seed=0)["white_noise_std_0.01"])

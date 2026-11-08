@@ -196,6 +196,9 @@ def markdown_table(results: list[dict[str, Any]]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")  # Windowsのcp932で書けない文字でも落ちない
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--nemo", type=Path, required=True)
     parser.add_argument("--reference-dir", type=Path, required=True, help="haas_ort.pyとfp32/を含むディレクトリ")
@@ -251,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
         "clips": results,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8", newline="")
 
     print(markdown_table(results))
     print()
