@@ -24,6 +24,9 @@ def make_state_dict(config: HaasConfig, seed: int = 0) -> dict:
             state_dict[name] = torch.tensor(0, dtype=torch.int64)
         elif name.endswith("running_var"):
             state_dict[name] = (torch.rand(shape, generator=gen) + 0.5).to(torch.bfloat16)
+        elif name.startswith("preprocessor.featurizer."):
+            # 窓とメルフィルタバンクは非負（負だとlog-melがNaNになる）
+            state_dict[name] = (torch.rand(shape, generator=gen) * 0.1).to(torch.bfloat16)
         else:
             state_dict[name] = (torch.randn(shape, generator=gen) * 0.1).to(torch.bfloat16)
     return state_dict
@@ -93,9 +96,9 @@ def tiny_config() -> HaasConfig:
         pred_hidden=8,
         pred_layers=2,
         kda_heads=2,
-        kda_head_dim=4,
+        kda_head_dim=3,
         kda_conv_size=4,
-        joint_hidden=8,
+        joint_hidden=12,
         vocab_size=16,
     )
 
