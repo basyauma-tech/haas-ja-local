@@ -102,27 +102,6 @@ PyTorch参照実装自体も第三者のfloat32 ONNXと6発話で比較済み。
 - CLIのfp32で33.8分（2,026.5秒）を68分割: 起動・モデル読み込み込み23.30秒（RTFx 87.0）、最大RSS 3.52GB。スレッド数は既定（ONNX Runtimeの自動設定）。
 - 公表RTFxはH200・バッチ512のため比較不可。4・12以外のスレッド数での速度は未計測。
 
-## 変換方法
-
-```sh
-pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-ja-local"
-hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
-haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx --int8
-```
-
-| 項目 | 値 |
-|---|---|
-| 変換元 | [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)の`Haas-ja-v1.0.nemo` |
-| リビジョン | `660728d39019e5e065046154beca44ac9a66a540`（2026-11-08取得） |
-| SHA-256 | `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`（`config.json`の`source_sha256`） |
-| サイズ | 1,232,384,000バイト |
-| 変換ツール | haas-ja-local 0.1.0、書き出し`e4968f2`、評価・計測`3d1050b` |
-| 書き出し環境 | torch 2.15.0、onnx 1.23.2、onnxruntime 1.31.1 |
-
-- PyTorch参照実装からONNXへ書き出し。
-- int8はper-channel動的量子化、`reduce_range=False`、量子化前の前処理なし。エンコーダ・デコーダとも量子化し、エンコーダ重みは両版とも外部`.data`に保存。
-- `--exclude-decoder`で再書き出しした際、fp32の全ファイルとint8のエンコーダはバイト単位で一致。別の量子化設定は未測定。
-
 ## ファイル一覧
 
 合計サイズ: fp32約2.46GB、int8約0.62GB、リポジトリ全体約3.1GB。
@@ -258,27 +237,6 @@ M5 Max CPU setup above, batch 1, sequential recognition. 647 FLEURS utterances, 
 - 12 threads span Super and Performance cores, not all cores. fp32 was faster with 4 threads, including on rerun; the cause is uninvestigated.
 - CLI fp32, 33.8 minutes (2,026.5 seconds), 68 pieces: 23.30 seconds including startup/model loading (RTFx 87.0), maximum RSS 3.52 GB; default thread count (ONNX Runtime automatic configuration).
 - Published RTFx uses H200, batch 512; not comparable. Speed with thread counts other than 4 and 12 is unmeasured.
-
-## Conversion
-
-```sh
-pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-ja-local"
-hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
-haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx --int8
-```
-
-| Item | Value |
-|---|---|
-| Source | `Haas-ja-v1.0.nemo` from [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) |
-| Revision | `660728d39019e5e065046154beca44ac9a66a540` (downloaded 2026-11-08) |
-| SHA-256 | `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa` (`source_sha256` in `config.json`) |
-| Size | 1,232,384,000 bytes |
-| Converter | haas-ja-local 0.1.0; export `e4968f2`, evaluation/measurement `3d1050b` |
-| Export environment | torch 2.15.0, onnx 1.23.2, onnxruntime 1.31.1 |
-
-- Exported from the PyTorch reference to ONNX.
-- int8: per-channel dynamic quantization, `reduce_range=False`, no pre-quantization preprocessing. Both encoder and decoder are quantized; both variants store encoder weights in external `.data` files.
-- Re-exporting with `--exclude-decoder` gave byte-identical fp32 files and int8 encoder files. Other quantization settings are unmeasured.
 
 ## Files
 

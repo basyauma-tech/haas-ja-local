@@ -23,8 +23,6 @@ Python 3.12が必要です。
 pip install "haas-ja-local[mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"
 # ONNX版で認識する（macOS・Linux・Windows）
 pip install "haas-ja-local[onnx] @ git+https://github.com/basyauma-tech/haas-ja-local"
-# 元の.nemoから変換する（torchが入ります）
-pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-ja-local"
 ```
 
 ```sh
@@ -53,21 +51,6 @@ MLXバックエンドは読み込み時に環境変数`MLX_ENABLE_TF32`を既定
 
 - `model.safetensors`があればMLX。
 - `fp32/`または`int8/`があればONNX。
-- `.nemo`ならPyTorch（`[convert]`extraが必要）。
-
-## 変換
-
-```sh
-hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
-haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-mlx
-haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx
-```
-
-`convert-mlx --quantize 8`は線形層を8bitに量子化した版を出力（mlxが必要なためmacOSのみ）。
-
-`convert-onnx --int8`は動的量子化版を`int8/`にも出力。int8はFLEURSでCER strictが公表値から+0.38ポイント外れたため参考扱い。既定はfp32。`transcribe --variant int8`で切り替えます。
-
-公開MLX版の元`.nemo`のSHA-256: `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`。
 
 ## 検証
 
@@ -104,7 +87,6 @@ Requires Python 3.12.
 ```sh
 pip install "haas-ja-local[mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"
 pip install "haas-ja-local[onnx] @ git+https://github.com/basyauma-tech/haas-ja-local"
-pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-ja-local"
 hf download basyauma-tech/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
 haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav
 haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
@@ -117,7 +99,7 @@ backend, tokenizer = load_model("Haas-ja-v1.0-mlx")
 print(transcribe(backend, tokenizer, load_audio("audio.wav")).text)
 ```
 
-Extras: `mlx` for macOS/Apple Silicon; `onnx` for macOS/Linux/Windows; `convert` installs torch.
+Extras: `mlx` for macOS/Apple Silicon; `onnx` for macOS/Linux/Windows.
 
 - Audio above 30 seconds: split at quiet points every ~30 seconds; join results.
 - MLX Metal cache: 1 GiB default. Set `cache_limit_bytes` in `HaasMLX.load` (`None` leaves it unchanged).
@@ -128,21 +110,6 @@ Model detection:
 
 - `model.safetensors` present: MLX.
 - `fp32/` or `int8/` present: ONNX.
-- `.nemo`: PyTorch (requires the `[convert]` extra).
-
-## Conversion
-
-```sh
-hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
-haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-mlx
-haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx
-```
-
-`convert-mlx --quantize 8` writes a version with 8-bit linear layers (needs mlx, so macOS only).
-
-`convert-onnx --int8` also exports dynamic-quantized weights to `int8/`. int8 is provided for reference only (FLEURS CER strict +0.38 points above the published value); fp32 is the default. Select int8 with `transcribe --variant int8`.
-
-Published MLX source `.nemo` SHA-256: `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`.
 
 ## Verification
 

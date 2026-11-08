@@ -29,6 +29,7 @@ tags:
 
 ## 概要・環境
 
+- 全線形層を`mlx.nn.quantize`で8bitアフィン量子化（グループサイズ64）。畳み込み・正規化層・埋め込みはbf16を維持。読み込み時の`scales`と`biases`はエンコーダーでbf16、予測・結合ネットワークでfloat32。
 - Apple SiliconのMac専用。NeMo・CUDA・Triton・torch不要。Python 3.12と[haas-ja-local](https://github.com/basyauma-tech/haas-ja-local)を使用。
 - 検証環境はbf16版と同じApple M5 Max（128GB）、macOS 27.2、mlx 0.32.4。他機種は未測定。
 
@@ -86,18 +87,6 @@ asr-ja-bench v1.1をbf16版と同じ手順で評価。CER strictの単位は%、
 | mlxのピーク割り当て | 1.79GB | 1.23GB |
 | macOSのピークメモリフットプリント | 3.20GB | 2.63GB |
 
-## 変換方法
-
-`--quantize`はApple SiliconのmacOSで`pip install "haas-ja-local[convert,mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"`が必要です。
-
-すべての線形層に`mlx.nn.quantize`の8bitアフィン量子化（グループサイズ64）を適用。畳み込み・正規化・埋め込みはbf16のままです。他の非量子化値もbf16版とビット単位で同じです。
-
-```sh
-haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-mlx-8bit --quantize 8
-```
-
-変換環境と元の`.nemo`の取得手順は[bf16版の変換方法](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx#変換方法)を参照。読み込み時の`scales`・`biases`はエンコーダがbf16、予測・結合ネットワークがfloat32です。
-
 ## ファイル一覧
 
 サイズはバイト。
@@ -131,6 +120,7 @@ Weights occupy about 0.73 GB, approximately 0.59 times the [bf16 version](https:
 
 ## Overview and requirements
 
+- All linear layers use `mlx.nn.quantize` 8-bit affine quantization with group size 64; convolutions, normalization layers and embeddings stay bf16. At load time, `scales` and `biases` are bf16 in the encoder and float32 in the prediction and joint networks.
 - Apple Silicon Macs only; no NeMo, CUDA, Triton or torch. Requires Python 3.12 and [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local).
 - Same test environment as bf16: Apple M5 Max (128 GB), macOS 27.2, mlx 0.32.4. Other machines are unmeasured.
 
@@ -187,18 +177,6 @@ M5 Max setup above, batch 1, sequential recognition. 647 FLEURS utterances after
 | Peak RSS | 1.57 GB | 1.09 GB |
 | mlx peak allocation | 1.79 GB | 1.23 GB |
 | macOS peak memory footprint | 3.20 GB | 2.63 GB |
-
-## Conversion
-
-`--quantize` requires `pip install "haas-ja-local[convert,mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"` on macOS with Apple Silicon.
-
-All linear layers use `mlx.nn.quantize` with 8-bit affine quantization and group size 64. Convolutions, normalization and embeddings remain bf16. Other unquantized values are also bit-identical to bf16.
-
-```sh
-haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-mlx-8bit --quantize 8
-```
-
-For conversion setup and source `.nemo` download, see [bf16 conversion](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx#conversion). On loading, `scales` and `biases` use bf16 in the encoder and float32 in the prediction/joint networks.
 
 ## Files
 
