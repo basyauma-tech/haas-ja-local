@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import re
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,6 +55,11 @@ def _import_backend(name: str):
     try:
         importlib.import_module(dependency)
     except ImportError as e:
+        if name == "mlx" and sys.platform != "darwin":
+            raise ImportError(
+                "the mlx backend requires macOS on Apple Silicon (the [mlx] extra installs nothing on "
+                f"{sys.platform}); use the onnx backend instead"
+            ) from e
         raise ImportError(f"the {name} backend needs {dependency}: pip install 'haas-ja-local[{extra}]'") from e
     return importlib.import_module(module)
 

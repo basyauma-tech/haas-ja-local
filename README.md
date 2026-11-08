@@ -53,6 +53,8 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 
 30秒を超える音声は無音に近い位置で約30秒ごとに分けて認識し、結果をつなげます。MLX版はMetalのバッファキャッシュを既定で1GiBに抑えます（`HaasMLX.load`の`cache_limit_bytes`で変更でき、`None`なら設定しません）。
 
+MLX版は、M5などのGPUでfloat32の計算がTF32にならないよう、読み込み時に環境変数`MLX_ENABLE_TF32`を既定で`0`にします（設定済みの値は変えません）。TF32を使う場合は、MLX版を読み込む前に`MLX_ENABLE_TF32=1`を設定してください。
+
 ## 自分で変換する
 
 元の`.nemo`を取得し、MLX版かONNX版に変換します。
@@ -145,6 +147,8 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 ```
 
 Audio longer than 30 seconds is split at quiet points into chunks of about 30 seconds, and the results are joined. The MLX backend caps the Metal buffer cache at 1 GiB by default (change it with `cache_limit_bytes` in `HaasMLX.load`; `None` leaves it untouched).
+
+So that float32 computations do not fall back to TF32 on GPUs such as the M5, the MLX backend sets the environment variable `MLX_ENABLE_TF32` to `0` when it is imported, unless it is already set. To opt out, set `MLX_ENABLE_TF32=1` before the MLX backend is imported.
 
 ## Converting it yourself
 

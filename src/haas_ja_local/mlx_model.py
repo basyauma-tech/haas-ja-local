@@ -6,6 +6,11 @@ convert/mlx.pyが書いたmodel.safetensorsを`load_weights(strict=True)`でそ�
 
 精度: 既定ではエンコーダの行列積・畳み込みをbf16で行い、LayerNorm・BatchNorm・softmaxはfloat32で計算する。
 予測ネットワーク（KDA）とjointは重みも計算もすべてfloat32。`compute_dtype=mx.float32`で全体をfloat32にできる。
+
+環境変数: このモジュールはimport時に`MLX_ENABLE_TF32`が未設定なら"0"にする（設定済みの値は変えない）。
+Neural Acceleratorを持つGPU（M5など）で、上のfloat32の計算がTF32に落ちないようにするため。
+TF32を使うには、このモジュールより前に`MLX_ENABLE_TF32=1`を設定する。M5 MaxのFLEURS 100発話では、
+TF32のオン・オフでトークン列も速度も変わらなかった（docs/verification/2026-11-08-mac-mlx.md）。
 """
 
 from __future__ import annotations
