@@ -28,6 +28,13 @@ def test_cut_falls_in_quiet_gap():
     assert int(29.0 * SR) <= first_cut <= int(29.4 * SR)
 
 
+def test_cut_is_center_of_quietest_window():
+    # 窓長ちょうど（0.1秒）の無音が29.5秒から始まる → その窓の中心29.55秒で切る
+    audio = np.random.default_rng(0).standard_normal(SR * 70).astype(np.float32)
+    audio[int(29.5 * SR) : int(29.6 * SR)] = 0.0
+    assert split_at_quiet_points(audio)[0] == (0, int(29.55 * SR))
+
+
 def test_quiet_gap_outside_search_range_is_ignored():
     # 無音が探索範囲（28〜32秒）の外の20秒にしかなければ、範囲内のどこかで切る
     audio = np.random.default_rng(0).standard_normal(SR * 70).astype(np.float32)

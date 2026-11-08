@@ -5,6 +5,8 @@ import pytest
 import soundfile as sf
 
 from haas_ja_local.cli import main
+from haas_ja_local.decode import TimedToken
+from haas_ja_local.transcribe import Transcript
 
 SR = 16000
 
@@ -29,6 +31,23 @@ def test_transcribe_json_timestamps(tiny_nemo, wav, capsys):
         assert set(token) == {"text", "start", "end"}
         assert 0.0 <= token["start"] < token["end"] <= 2.0 + 0.08 * 4
         assert round(token["start"], 3) == token["start"]
+
+
+def test_token_times_and_piece_text(tiny_nemo, wav, capsys, monkeypatch):
+    # 2番目の断片（offset 29.95秒。浮動小数の誤差が出る値）のトークンで、
+    # 時刻の式・duration 0の扱い・丸め・"▁"の置換を確かめる
+    from haas_ja_local.tokenizer import Tokenizer
+
+    monkeypatch.setattr(Tokenizer, "pieces", lambda self, ids: ["▁か" if ids[0] == 3 else "な"])
+    fixed = Transcript("かな", (TimedToken(3, 3, 0), TimedToken(4, 7, 3)), (29.95, 29.95))
+    monkeypatch.setattr("haas_ja_local.cli.transcribe", lambda *a, **k: fixed)
+    assert main(["transcribe", str(tiny_nemo), str(wav), "--json", "--timestamps"]) == 0
+    record = json.loads(capsys.readouterr().out)
+    assert record["text"] == "かな"
+    assert record["tokens"] == [
+        {"text": " か", "start": 30.19, "end": 30.27},
+        {"text": "な", "start": 30.51, "end": 30.75},
+    ]
 
 
 def test_transcribe_json_without_timestamps_has_no_tokens(tiny_nemo, wav, capsys):

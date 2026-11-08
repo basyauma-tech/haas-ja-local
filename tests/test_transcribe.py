@@ -119,18 +119,24 @@ def test_longform_offsets_increase(tiny):
     assert set(result.offsets) <= {0.0, 1.0, 2.0, 3.0}
 
 
+class SpacedTokenizer:
+    """idを文字にし、前後に空白を付けて返すトークナイザ（stripの有無を見分けるため）。"""
+
+    def decode(self, ids):
+        return " " + "".join(chr(ord("a") + i) for i in ids) + " "
+
+
 def test_longform_joins_stripped_chunk_texts_and_offsets(tiny, monkeypatch):
-    backend, tokenizer = tiny
+    backend, _ = tiny
     # 断片ごとに決まったトークンを返すgreedyに差し替え、テキストの連結とoffsetの付け方を確かめる
     pieces = iter([[TimedToken(3, 0, 1)], [], [TimedToken(5, 2, 1), TimedToken(6, 4, 0)], [TimedToken(7, 1, 2)]])
     # パッケージ属性のtranscribeは関数なので、モジュールはsys.modulesから取る
     monkeypatch.setattr(sys.modules["haas_ja_local.transcribe"], "greedy_tdt", lambda b, e: next(pieces))
     audio = np.random.default_rng(0).standard_normal(int(SR * 3.5)).astype(np.float32)
-    result = transcribe(backend, tokenizer, audio, longform_threshold_seconds=1.0)
+    result = transcribe(backend, SpacedTokenizer(), audio, longform_threshold_seconds=1.0)
     assert [t.id for t in result.tokens] == [3, 5, 6, 7]
     assert result.offsets == (0.0, 2.0, 2.0, 3.0)
-    expected = "".join(tokenizer.decode(ids).strip() for ids in ([3], [], [5, 6], [7]))
-    assert result.text == expected
+    assert result.text == "dfgh"
 
 
 def test_package_exports_public_api():
