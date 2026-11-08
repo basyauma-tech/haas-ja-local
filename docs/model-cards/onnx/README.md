@@ -94,6 +94,31 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 
 TODO(Task 12/13): float32化・トレース方式・int8量子化設定。
 
+## ファイル一覧
+
+| ファイル | 内容 |
+|---|---|
+| `fp32/encoder.onnx`、`fp32/encoder.onnx.data` | エンコーダのグラフ・外部重み |
+| `fp32/decoder_joint.onnx` | デコーダ＋結合ネットワーク |
+| `int8/encoder.onnx`、`int8/encoder.onnx.data`、`int8/decoder_joint.onnx` | int8版（`.data`の有無は上記TODOで確認） |
+| `config.json`、`tokenizer.model` | モデル設定・トークナイザ |
+| `preprocessor.npz` | 前処理用の窓・メルフィルタバンク |
+| `SHA256SUMS` | ファイルのSHA-256一覧 |
+| `LICENSE`、`NOTICE` | ライセンス・帰属情報 |
+
+## 入出力仕様
+
+opset 17。Bはバッチ、Tは入力フレーム数、T'はエンコード後のフレーム数。
+
+| ネットワーク | 入出力 | 名前・形状・型 |
+|---|---|---|
+| エンコーダ | 入力 | `audio_signal [B,128,T] float32`、`length [B] int64` |
+| エンコーダ | 出力 | `outputs [B,1024,T'] float32`、`encoded_lengths [B] int64` |
+| デコーダ＋結合 | 入力 | `encoder_outputs [B,1024,1] float32`、`targets [B,1] int32`、`target_length [B] int32`、`input_states_1/2 [2,B,20480] float32` |
+| デコーダ＋結合 | 出力 | `outputs [B,1,1,3078] float32`（語彙3072＋blank＋duration 5）、`prednet_lengths [B] int32`、`output_states_1/2 [2,B,20480] float32` |
+
+`input_states_1`はKDAの再帰状態5×64×64。`input_states_2`はq/k/vのshort convバッファ3×320×4を先頭に置き、残りは0。
+
 ## 制限事項
 
 - 元モデル同様、フィラーが抜けやすく、漢字・かな・数字の表記指定は不可。
@@ -131,7 +156,20 @@ TODO(Task 12/13): fp32/int8 default and rationale.
 
 `hf` comes with `huggingface_hub`.
 
-[Installation, Python and CLI examples](#使い方); `--threads` sets ONNX Runtime threads.
+```sh
+pip install "haas-ja-local[onnx] @ git+https://github.com/basyauma-tech/haas-ja-local"
+hf download basyauma-technology/Haas-ja-v1.0-onnx --local-dir Haas-ja-v1.0-onnx
+haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --threads 4
+```
+
+```python
+from haas_ja_local import load_audio, load_model, transcribe
+
+backend, tokenizer = load_model("Haas-ja-v1.0-onnx")
+print(transcribe(backend, tokenizer, load_audio("audio.wav")).text)
+```
+
+`--threads` sets ONNX Runtime threads.
 
 - Uses fp32 if `fp32/` exists, otherwise int8. Select int8 with `--variant int8` or `HaasONNX.load(path, variant="int8")`. TODO(Task 12/13): revisit the default after measuring int8 CER.
 - Long audio/times match MLX: split audio above 30 seconds into ~30-second pieces; `--json --timestamps` emits token times.
@@ -148,7 +186,11 @@ TODO(Task 12/13): fp32/int8 RTFx/peak memory, 4 threads/all cores; batch 1, sequ
 
 ## Conversion
 
-[Conversion commands](#変換方法).
+```sh
+pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-ja-local"
+hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
+haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx --int8
+```
 
 | Item | Value |
 |---|---|
@@ -159,6 +201,31 @@ TODO(Task 12/13): fp32/int8 RTFx/peak memory, 4 threads/all cores; batch 1, sequ
 | Converter | TODO(Task 12/13): haas-ja-local version and commit |
 
 TODO(Task 12/13): float32 cast, tracing method, int8 quantization settings.
+
+## Files
+
+| File | Contents |
+|---|---|
+| `fp32/encoder.onnx`, `fp32/encoder.onnx.data` | Encoder graph and external weights |
+| `fp32/decoder_joint.onnx` | Decoder and joint network |
+| `int8/encoder.onnx`, `int8/encoder.onnx.data`, `int8/decoder_joint.onnx` | int8 variant (`.data` presence pending the TODO above) |
+| `config.json`, `tokenizer.model` | Model configuration and tokenizer |
+| `preprocessor.npz` | Preprocessing window and mel filterbank |
+| `SHA256SUMS` | File SHA-256 checksums |
+| `LICENSE`, `NOTICE` | License and attribution |
+
+## Input/output specification
+
+Opset 17. B is batch size, T is the input frame count, and T' is the encoded frame count.
+
+| Network | Direction | Names, shapes and types |
+|---|---|---|
+| Encoder | Input | `audio_signal [B,128,T] float32`, `length [B] int64` |
+| Encoder | Output | `outputs [B,1024,T'] float32`, `encoded_lengths [B] int64` |
+| Decoder + joint | Input | `encoder_outputs [B,1024,1] float32`, `targets [B,1] int32`, `target_length [B] int32`, `input_states_1/2 [2,B,20480] float32` |
+| Decoder + joint | Output | `outputs [B,1,1,3078] float32` (vocabulary 3072 + blank + duration 5), `prednet_lengths [B] int32`, `output_states_1/2 [2,B,20480] float32` |
+
+`input_states_1` holds the KDA recurrent state, 5×64×64. `input_states_2` holds the q/k/v short conv buffers, 3×320×4, at the beginning; the remainder is 0.
 
 ## Limitations
 

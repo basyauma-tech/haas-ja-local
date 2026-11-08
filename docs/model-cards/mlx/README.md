@@ -27,6 +27,8 @@ tags:
 
 ## 概要・環境
 
+元モデルはFastConformerエンコーダとTDTデコーダ（予測ネットワークはKimi Delta Attention）で、公式の実行環境はLinuxとNVIDIA GPU（NeMo 2.7）に限られます。
+
 - この変換物: Apple SiliconのMac専用。NeMo・CUDA・Tritonは不要。推論コードは別途[haas-ja-local](https://github.com/basyauma-tech/haas-ja-local)を使用。
 - Python 3.12（>=3.12,<3.13）。実行時依存はmlx・numpy・sentencepiece・soundfile・soxr。torch不要。重み用に約1.2GB必要。
 - 検証機はApple M5 Max（128GB）、macOS 27.2、mlx 0.32.4の1台のみ。
@@ -71,7 +73,7 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 
 ## 精度
 
-[asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench)v1.1、[jacer](https://github.com/third-intelligence/jacer)v1.2.0で測定。単位は%。
+[asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench) v1.1、[jacer](https://github.com/third-intelligence/jacer) v1.2.0で測定。単位は%。
 
 | サブセット | 発話数 | 音声（時間） | 指標 | この変換 | 公表値 | 差（ポイント） |
 |---|---:|---:|---|---:|---:|---:|
@@ -93,6 +95,12 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 未測定: JSUT basic5000・TEDxJP-10K・SpeechBSD（5サブセットの重み付きCERなし）、Intel Mac、メモリ16GB以下、バッチ2以上、同一話者が話し続ける実際の長時間録音。
 
 詳細・再現手順: [精度と速度](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-mlx.md)、[数値一致](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-numerics.md)。
+
+MLX版（bf16）とPyTorch参照実装（float32）の比較では、FLEURS650発話中632発話（97.2%）でトークン列と本文が一致し、異なる18発話のうち12発話は句読点だけの違いでした。
+
+## 実装の確認
+
+PyTorch参照実装は、同じチェックポイントから第三者が書き出したfloat32のONNXとFLEURSの6発話で比較し、最大誤差はlog-mel 9.54e-07、エンコーダ出力（相対）4.36e-06、結合ネットワーク出力（相対）1.16e-06、トークン列は6発話すべて一致でした。
 
 ## 速度とメモリ
 
@@ -131,6 +139,16 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 - bf16の値・型は不変。畳み込みのみMLXのチャンネル末尾配置へ変更: 2次元[O,I,H,W]→[O,H,W,I]、1次元（深さ方向を含む）[O,I,K]→[O,K,I]。
 - 再変換のテンソル値はビット一致。safetensorsのメタデータキー順は不定のため、ファイル全体のSHA-256は一致しない場合あり。
 
+## ファイル一覧
+
+| ファイル | 内容 |
+|---|---|
+| `model.safetensors` | bf16、1,231,827,296バイト、SHA-256: `96600ed4ca8a4d9d45e6ed6bfd276ab9109da3f1c9e20e2bb0870e6f894fe5e4` |
+| `config.json` | モデル設定 |
+| `tokenizer.model` | SentencePiece BPE、3,072トークン |
+| `LICENSE` | ライセンス |
+| `NOTICE` | 帰属情報 |
+
 ## 制限事項
 
 - 元モデル同様、フィラー（「えー」「あの」）が抜けやすく、漢字・かな・数字の表記指定は不可。
@@ -157,6 +175,8 @@ Original bf16 values are preserved; only tensor axes are rearranged and unused `
 
 ## Overview and requirements
 
+The original model uses a FastConformer encoder and a TDT decoder (Kimi Delta Attention prediction network); the official runtime is limited to Linux with NVIDIA GPUs (NeMo 2.7).
+
 - This conversion: Apple Silicon Macs only; no NeMo, CUDA or Triton. Inference code is separate: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local).
 - Python 3.12 (>=3.12,<3.13); mlx, numpy, sentencepiece, soundfile, soxr. No torch needed. Allow about 1.2 GB for weights.
 - Tested on one Apple M5 Max (128 GB), macOS 27.2, mlx 0.32.4.
@@ -165,7 +185,19 @@ Original bf16 values are preserved; only tensor axes are rearranged and unused `
 
 `hf` comes with `huggingface_hub` (`pip install huggingface_hub` if needed).
 
-[Installation, Python and CLI examples](#使い方).
+```sh
+pip install "haas-ja-local[mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"
+hf download basyauma-technology/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
+haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav
+haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
+```
+
+```python
+from haas_ja_local import load_audio, load_model, transcribe
+
+backend, tokenizer = load_model("Haas-ja-v1.0-mlx")
+print(transcribe(backend, tokenizer, load_audio("audio.wav")).text)
+```
 
 - Input: soundfile formats (WAV, FLAC, etc.). Channels are averaged to mono; soxr resamples to 16 kHz.
 - Long audio: split sequentially above 30 seconds. Each cut is the centre of the quietest 0.1-second window within 30 ± 2 seconds of the piece's start. Results are joined.
@@ -197,6 +229,12 @@ Not measured: JSUT basic5000, TEDxJP-10K, SpeechBSD (no weighted CER across all 
 
 Details/reproduction (Japanese): [accuracy and speed](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-mlx.md), [numerical agreement](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-numerics.md).
 
+MLX (bf16) and the PyTorch reference (float32) matched in both token sequences and text on 632 of 650 FLEURS utterances (97.2%); 12 of the 18 differing utterances differed only in punctuation.
+
+## Implementation verification
+
+The PyTorch reference was compared on 6 FLEURS utterances against third-party float32 ONNX exported from the same checkpoint: maximum errors were 9.54e-07 for log-mel, 4.36e-06 for encoder output (relative), and 1.16e-06 for joint network output (relative); token sequences matched on all 6 utterances.
+
 ## Speed and memory
 
 647 of 650 FLEURS utterances, 2.35 hours, excluding three warm-ups. Same setup/precision as above, batch 1, sequential. Transcription time excludes audio reading. GB = 10^9 bytes.
@@ -217,7 +255,11 @@ Details/reproduction (Japanese): [accuracy and speed](https://github.com/basyaum
 
 ## Conversion
 
-[Conversion commands](#変換方法).
+```sh
+pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-ja-local"
+hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
+haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-mlx
+```
 
 | Item | Value |
 |---|---|
@@ -229,6 +271,16 @@ Details/reproduction (Japanese): [accuracy and speed](https://github.com/basyaum
 
 - bf16 values/types unchanged. Only convolution axes move to channels-last: 2-D [O,I,H,W]→[O,H,W,I]; 1-D, including depthwise, [O,I,K]→[O,K,I].
 - Repeated conversion gives bit-identical tensors. File SHA-256 may differ because safetensors metadata-key order is not fixed.
+
+## Files
+
+| File | Contents |
+|---|---|
+| `model.safetensors` | bf16; 1,231,827,296 bytes; SHA-256: `96600ed4ca8a4d9d45e6ed6bfd276ab9109da3f1c9e20e2bb0870e6f894fe5e4` |
+| `config.json` | Model configuration |
+| `tokenizer.model` | SentencePiece BPE, 3,072 tokens |
+| `LICENSE` | License |
+| `NOTICE` | Attribution |
 
 ## Limitations
 
