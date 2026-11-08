@@ -12,7 +12,7 @@
 | MLX（Apple Silicon、線形層8bit量子化） | basyauma-tech/Haas-ja-v1.0-mlx-8bit | 準備中 |
 | ONNX（CPU、fp32・int8） | basyauma-tech/Haas-ja-v1.0-onnx | 準備中 |
 
-精度・速度・制限は各モデルカードを参照。MLX版の原稿: [docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md)。
+精度・速度・制限: [MLXモデルカード](docs/model-cards/mlx/README.md)。
 
 ## 使い方
 
@@ -95,7 +95,7 @@ Run [Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) local
 | MLX (Apple Silicon, 8-bit linear layers) | basyauma-tech/Haas-ja-v1.0-mlx-8bit | planned |
 | ONNX (CPU, fp32 and int8) | basyauma-tech/Haas-ja-v1.0-onnx | planned |
 
-Accuracy, speed, limitations: see model cards. MLX card source: [docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md).
+Accuracy, speed and limitations: [MLX model card](docs/model-cards/mlx/README.md).
 
 ## Installation and usage
 

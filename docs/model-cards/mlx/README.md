@@ -25,13 +25,13 @@ tags:
 
 重みは元のbf16の値を保持し、軸の並べ替えと推論に不要な`num_batches_tracked`の除去だけを行います。Hugging Face上の分類はquantizedですが、量子化していません。
 
-線形層を8bitに量子化した版（約0.73GB）: [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
+線形層を8bitに量子化した版（約0.73GB、準備中）: [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
 
 ## 概要・環境
 
 元モデルはFastConformerエンコーダとTDTデコーダ（予測ネットワークはKimi Delta Attention）で、公式の実行環境はLinuxとNVIDIA GPU（NeMo 2.7）に限られます。
 
-- この変換物: Apple SiliconのMac専用。NeMo・CUDA・Tritonは不要。推論コードは別途[haas-ja-local](https://github.com/basyauma-tech/haas-ja-local)を使用。
+- Apple SiliconのMac専用。NeMo・CUDA・Triton不要。推論コード: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local)。
 - Python 3.12（>=3.12,<3.13）。実行時依存はmlx・numpy・sentencepiece・soundfile・soxr。torch不要。重み用に約1.2GB必要。
 - 検証機はApple M5 Max（128GB）、macOS 27.2、mlx 0.32.4の1台のみ。
 
@@ -44,8 +44,6 @@ pip install "haas-ja-local[mlx] @ git+https://github.com/basyauma-tech/haas-ja-l
 hf download basyauma-tech/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
 ```
 
-Python:
-
 ```python
 from haas_ja_local import load_audio, load_model, transcribe
 
@@ -53,8 +51,6 @@ backend, tokenizer = load_model("Haas-ja-v1.0-mlx")
 result = transcribe(backend, tokenizer, load_audio("audio.wav"))
 print(result.text)
 ```
-
-CLI:
 
 ```sh
 haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav
@@ -91,7 +87,7 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 - `rebuild.py`で評価データを再構築し、全書き起こしのハッシュ照合に合格。JVNVの16kHz化は想定のffmpeg 7.1ではなく9.0.2のため、公式音声と微差の可能性あり。
 - 1発話ずつ認識後、サブセット全体で`jacer.cer`を1回計算（マイクロ平均）。3指標とも句読点・空白を除外。全発話30秒以下で分割なし。
 - 上記M5 Max、Metal、バッチ1。エンコーダbf16、予測・結合ネットワークfloat32。
-- 公表値は公式asr-ja-bench v1.1（NeMo・bf16・H200）。モデルカードと公開記事の小数第2位の差を幅で表示。差は近い端との差、範囲内は0。flex・kanaは未照合。
+- 公表値は公式asr-ja-bench v1.1（NeMo・bf16・H200）。モデルカードと公開記事の小数第2位の差を幅で表示。差は近い端との差、範囲内は0。
 - 精度調整なしの初回実行。
 
 未測定: JSUT basic5000・TEDxJP-10K・SpeechBSD（5サブセットの重み付きCERなし）、Intel Mac、メモリ16GB以下、バッチ2以上、同一話者が話し続ける実際の長時間録音。
@@ -158,13 +154,13 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 - 30秒超の分割でCERが悪化。FLEURS 150発話を連結した33.8分音声のCER strictは、発話別4.10%、約30秒分割6.44%、PyTorch（float32）6.39%。MLXの数値誤差ではなく、モデルと公式`transcribe_longform`に沿った分割規則による。
 - 悪化の約1ポイントは異話者の連結（発話を切らず30秒以内にまとめても5.08%）。同一話者の実録音では小さい可能性あり。残り約1.4ポイントは発話途中の切断（67境界中50）。
 - バッチ1のみ。ストリーミング・話者ラベル・公式Haas-ASRのカスタム語彙は未対応。
-- 時刻は80ms刻みのトークン単位。単語単位ではない。
+- 時刻は単語単位ではない。
 
 ## ライセンスと帰属
 
 - 重み・推論コード: Apache-2.0。元重みは[third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)（Copyright Third Intelligence, Inc.）。帰属は`NOTICE`。「Haas」は変換元を示す名称。
 - 参考実装: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)、[third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR)（公式推論パッケージ）、[matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx)、[Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx)はApache-2.0。[flash-linear-attention](https://github.com/fla-org/flash-linear-attention)はMIT。
-- Sanamiのfloat32 ONNXは数値比較のみで、重みは再配布しない。配布重みはすべて元の`.nemo`の非公式の変換物。
+- Sanamiのfloat32 ONNXは数値比較のみで、重みは再配布しない。
 - 評価データ: FLEURSはCC BY 4.0、JVNVはCC BY-SA 4.0。同梱・再配布しない。
 
 ---
@@ -175,13 +171,13 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 
 Original bf16 values are preserved; only tensor axes are rearranged and unused `num_batches_tracked` values removed. Hugging Face classifies it as quantized, but no quantization is applied.
 
-Version with 8-bit linear layers (about 0.73 GB): [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
+Version with 8-bit linear layers (about 0.73 GB, planned): [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
 
 ## Overview and requirements
 
 The original model uses a FastConformer encoder and a TDT decoder (Kimi Delta Attention prediction network); the official runtime is limited to Linux with NVIDIA GPUs (NeMo 2.7).
 
-- This conversion: Apple Silicon Macs only; no NeMo, CUDA or Triton. Inference code is separate: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local).
+- Apple Silicon Macs only; no NeMo, CUDA or Triton. Inference code: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local).
 - Python 3.12 (>=3.12,<3.13); mlx, numpy, sentencepiece, soundfile, soxr. No torch needed. Allow about 1.2 GB for weights.
 - Tested on one Apple M5 Max (128 GB), macOS 27.2, mlx 0.32.4.
 
@@ -226,7 +222,7 @@ Conditions:
 - Data rebuilt with `rebuild.py`; all transcript hashes passed. JVNV resampling to 16 kHz used ffmpeg 9.0.2 instead of the expected 7.1, so audio may differ slightly.
 - Utterances transcribed individually; one `jacer.cer` call per subset (micro-average). All three metrics ignore punctuation/spaces. All utterances ≤30 seconds; no splitting.
 - M5 Max setup above, Metal, batch 1; bf16 encoder, float32 prediction/joint networks.
-- Published: official asr-ja-bench v1.1 (NeMo, bf16, H200). Model-card/blog differences in the second decimal place form the range. Differences use the nearer endpoint, or 0 within the range. flex/kana not compared.
+- Published: official asr-ja-bench v1.1 (NeMo, bf16, H200). Model-card/blog differences in the second decimal place form the range. Differences use the nearer endpoint, or 0 within the range.
 - First run; no accuracy tuning.
 
 Not measured: JSUT basic5000, TEDxJP-10K, SpeechBSD (no weighted CER across all five subsets); Intel Macs; ≤16 GB machines; batch sizes ≥2; real long recordings of one continuous speaker.
@@ -293,11 +289,11 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 - Splitting above 30 seconds raises CER. For 150 FLEURS utterances joined into 33.8 minutes, CER strict: 4.10% individually, 6.44% with ~30-second splits, 6.39% in PyTorch (float32). This reflects the model and splitting rule following official `transcribe_longform`, rather than MLX numerics.
 - About 1 point comes from joining different speakers (5.08% even when grouping intact utterances into ≤30 seconds); this may be smaller with one continuous speaker. About 1.4 points come from mid-utterance cuts (50 of 67 boundaries).
 - Batch 1 only. No streaming, speaker labels or official Haas-ASR custom vocabulary.
-- Token timestamps in 80 ms steps, not word timestamps.
+- Word timestamps are not supported.
 
 ## License and attribution
 
 - Weights/code: Apache-2.0. Source weights: [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0), Copyright Third Intelligence, Inc. Attribution: `NOTICE`. "Haas" identifies the source.
 - References: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo), [third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR) (official inference package), [matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx), [Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx): Apache-2.0. [flash-linear-attention](https://github.com/fla-org/flash-linear-attention): MIT.
-- Sanami's float32 ONNX is used only for numerical comparison; its weights are not redistributed. All distributed weights are unofficial conversions of the original `.nemo`.
+- Sanami's float32 ONNX is used only for numerical comparison; its weights are not redistributed.
 - Evaluation data: FLEURS CC BY 4.0; JVNV CC BY-SA 4.0. Neither included nor redistributed.
