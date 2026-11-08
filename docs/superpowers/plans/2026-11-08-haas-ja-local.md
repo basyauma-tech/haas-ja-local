@@ -398,7 +398,7 @@ class ConformerEncoder(nn.Module)       # forward(mel [B,128,T], length [B]) -> 
 class KimiDeltaAttention(nn.Module)     # 1ステップ再帰形。forward(x [B,1,H], rec [B,HV,V,K], conv (q,k,v各 [B,D,W])) -> (y [B,1,H], rec', conv')
 class KDAPredictionNetwork(nn.Module)   # embed(3073,640)、layers、norms（pre-norm）、final_norm。forward(token [B], rec [L,B,20480], conv [L,B,20480]) -> (g [B,640], rec', conv')
 class Joint(nn.Module)                  # enc(1024→640), pred(640→640), joint_net.2(640→3078)。forward(f [B,1024], g [B,640]) -> logits [B,3078] = joint_net.2(relu(enc(f) + pred(g)))
-class HaasTorch(nn.Module, Backend)     # encoder, decoder(KDAPredictionNetwork), joint, buffers window/fb。step() は decoder → joint を1回で行う
+class HaasTorch(nn.Module, Backend)     # encoder, decoder(KDAPredictionNetwork), joint, buffers window/fb。step()はdecoder → jointを1回で行う
 def load_torch_model(nemo: Path, *, dtype: torch.dtype = torch.float32) -> tuple[HaasTorch, Tokenizer]
 def encoded_length(n_frames: int, config: HaasConfig) -> int     # ceilをsubsamplingの段数（log2(8)=3）だけ繰り返す
 ```
@@ -670,7 +670,7 @@ class EncoderWrapper(nn.Module)       # forward(audio_signal [B,128,T], length [
 class DecoderJointWrapper(nn.Module)  # forward(encoder_outputs [B,1024,1], targets [B,1] i32, target_length [B] i32, input_states_1 [L,B,20480], input_states_2 [L,B,20480])
                                       #   -> (outputs [B,1,1,3078], prednet_lengths [B] i32, output_states_1, output_states_2)
 def export_onnx(nemo: Path, out_dir: Path) -> None
-#   out_dir/fp32/encoder.onnx (+ encoder.onnx.data、全テンソル1ファイル、size_threshold=1024)、out_dir/fp32/decoder_joint.onnx、config.json、tokenizer.model、preprocessor.npz（window と fb の float32。ONNX には前処理が含まれないため）
+#   out_dir/fp32/encoder.onnx (+ encoder.onnx.data、全テンソル1ファイル、size_threshold=1024)、out_dir/fp32/decoder_joint.onnx、config.json、tokenizer.model、preprocessor.npz（windowとfbのfloat32。ONNXには前処理が含まれないため）
 #   opset 17、dynamic_axes: audio_signal {0:"B",2:"T"}、length {0:"B"}、outputs {0:"B",2:"T_enc"}、encoder_outputs {0:"B"}、targets/target_length/states {1 or 0:"B"}
 #   metadata_props: vocab_size=3072, blank_id=3072, model_type=tdt, durations="0,1,2,3,4", pred_rnn_layers=2, pred_hidden=640, normalize_type=per_feature,
 #                   subsampling_factor=8, feat_dim=128, frame_seconds=0.08, source_repo, source_sha256, converter="haas-ja-local <version>", note="unofficial conversion"
@@ -798,34 +798,34 @@ hf upload basyauma-technology/Haas-ja-v1.0-onnx var/dist/onnx . --commit-message
 
 ---
 
-## 改訂（2026-11-08、ユーザー決定）: ONNX版と MLX 量子化版も Mac で開発する
+## 改訂（2026-11-08、ユーザー決定）: ONNX版とMLX量子化版もMacで開発する
 
-利用者の指示により、x86 での確認は後回しにし、ONNX 版（fp32 / int8）と MLX 量子化版（8bit / 4bit）を含む全開発をこの Mac で行う。公開文書は本文で組織名に言及せず、要点だけを短く書き、文章は Codex CLI に書かせる。
+利用者の指示により、x86での確認は後回しにし、ONNX版（fp32 / int8）とMLX量子化版（8bit / 4bit）を含む全開発をこのMacで行う。公開文書は本文で組織名に言及せず、要点だけを短く書き、文章はCodex CLIに書かせる。
 
-### Task 12'（Mac）: ONNX 版の実モデル検証と計測
+### Task 12'（Mac）: ONNX版の実モデル検証と計測
 
-- 書き出し: `uv run --extra convert haas-ja-local convert-onnx --nemo var/upstream/Haas-ja-v1.0.nemo --out var/dist/onnx --int8`（fp32 と int8。`var/dist/onnx-mac-check` は参考確認用なので使わず、作り直す）。
-- 数値一致: `scripts/verify_numerics.py --onnx-dir var/dist/onnx/fp32 ...`（torch と 1e-5、6 クリップのトークン一致、フレーム数一致のゲート込み）。
-- 精度: `scripts/eval_bench.py --backend onnx --variant fp32|int8` を FLEURS と JVNV で。int8 が公表値±0.3 を外れたら `--int8 --exclude-decoder` を 1 回試し、それでも外れたら数値を載せて既定 fp32 のまま（既定は現状 fp32）。int8 が合格したら `HaasONNX.load` の既定を int8 に変えるかはカードに「既定は fp32、int8 は任意」と書く形で据え置く（x86 未確認のため）。
-- 速度: `scripts/bench_speed.py --backend onnx --variant fp32|int8 --threads 4|<物理コア数>`（Apple Silicon CPU。x86 は未計測と明記）。
-- 検証記録 `docs/verification/2026-11-08-mac-onnx.md`。
+- 書き出し: `uv run --extra convert haas-ja-local convert-onnx --nemo var/upstream/Haas-ja-v1.0.nemo --out var/dist/onnx --int8`（fp32とint8。`var/dist/onnx-mac-check`は参考確認用なので使わず、作り直す）。
+- 数値一致: `scripts/verify_numerics.py --onnx-dir var/dist/onnx/fp32 ...`（torchと1e-5、6クリップのトークン一致、フレーム数一致のゲート込み）。
+- 精度: `scripts/eval_bench.py --backend onnx --variant fp32|int8`をFLEURSとJVNVで。int8が公表値±0.3を外れたら`--int8 --exclude-decoder`を1回試し、それでも外れたら数値を載せて既定fp32のまま（既定は現状fp32）。int8が合格したら`HaasONNX.load`の既定をint8に変えるかはカードに「既定はfp32、int8は任意」と書く形で据え置く（x86未確認のため）。
+- 速度: `scripts/bench_speed.py --backend onnx --variant fp32|int8 --threads 4|<物理コア数>`（Apple Silicon CPU。x86は未計測と明記）。
+- 検証記録`docs/verification/2026-11-08-mac-onnx.md`。
 
-### Task 13'（Mac）: ONNX 版の公開
+### Task 13'（Mac）: ONNX版の公開
 
-- カード `docs/model-cards/onnx/README.md` の TODO を実測値で埋める（Codex CLI で短く）。x86 未計測を明記。
-- 公開バンドル `var/dist/publish/onnx/`（fp32/、int8/、config.json、tokenizer.model、preprocessor.npz、README.md、LICENSE、NOTICE）→ `hf repos create basyauma-technology/Haas-ja-v1.0-onnx --type model --public` → `hf upload`。往復確認（fp32 と int8 の両方で transcribe）。README と台帳を更新。
+- カード`docs/model-cards/onnx/README.md`のTODOを実測値で埋める（Codex CLIで短く）。x86未計測を明記。
+- 公開バンドル`var/dist/publish/onnx/`（fp32/、int8/、config.json、tokenizer.model、preprocessor.npz、README.md、LICENSE、NOTICE）→ `hf repos create basyauma-technology/Haas-ja-v1.0-onnx --type model --public` → `hf upload`。往復確認（fp32とint8の両方でtranscribe）。READMEと台帳を更新。
 
-### Task 14（Mac）: MLX 量子化版（8bit / 4bit）
+### Task 14（Mac）: MLX量子化版（8bit / 4bit）
 
-- 変換: `convert-mlx --nemo ... --out DIR --quantize 8|4 [--group-size 64]`。`mlx.nn.quantize` 相当の量子化を線形層（エンコーダ FF・注意、予測ネットワーク、結合）に適用し、畳み込み・正規化・埋め込みは bf16 のまま。`config.json` に `quantization: {"bits": 8, "group_size": 64, "targets": "linear"}` を記録。safetensors には `weight`/`scales`/`biases` を MLX の規約どおり保存。変換は torch 側で mlx を使わず行うのが難しければ、変換器のこの経路だけ mlx 必須（macOS 限定）にしてよい。
-- 読み込み: `HaasMLX.load` が `config.json` の `quantization` を見て `nn.quantize` を適用してから `load_weights(strict=True)`。bf16 版はこれまでどおり。
-- 検証: tiny/parity モデルで量子化→読み込みの往復と、bf16 との出力差が bits に応じた許容内（8bit: logits 相対 1e-2 程度、4bit: トークン列一致率で評価）。実モデルで FLEURS・JVNV の CER と RTFx、ピークメモリを bf16 と同じ手順で計測。
-- 合格基準: 公表値との差 0.3 ポイント以内の版だけ公開。外れた版は数値を記録し、公開は見送る（カードに「未公開の理由」を一行）。
-- 公開: `basyauma-technology/Haas-ja-v1.0-mlx-8bit`、`-4bit`（合格した版のみ）。カードは bf16 版を基に Codex CLI で短く。bf16 版カードと README に量子化版へのリンクを追加。
-- 検証記録 `docs/verification/2026-11-08-mac-mlx-quant.md`。
+- 変換: `convert-mlx --nemo ... --out DIR --quantize 8|4 [--group-size 64]`。`mlx.nn.quantize`相当の量子化を線形層（エンコーダFF・注意、予測ネットワーク、結合）に適用し、畳み込み・正規化・埋め込みはbf16のまま。`config.json`に`quantization: {"bits": 8, "group_size": 64, "targets": "linear"}`を記録。safetensorsには`weight`/`scales`/`biases`をMLXの規約どおり保存。変換はtorch側でmlxを使わず行うのが難しければ、変換器のこの経路だけmlx必須（macOS限定）にしてよい。
+- 読み込み: `HaasMLX.load`が`config.json`の`quantization`を見て`nn.quantize`を適用してから`load_weights(strict=True)`。bf16版はこれまでどおり。
+- 検証: tiny/parityモデルで量子化→読み込みの往復と、bf16との出力差がbitsに応じた許容内（8bit: logits相対1e-2程度、4bit: トークン列一致率で評価）。実モデルでFLEURS・JVNVのCERとRTFx、ピークメモリをbf16と同じ手順で計測。
+- 合格基準: 公表値との差0.3ポイント以内の版だけ公開。外れた版は数値を記録し、公開は見送る（カードに「未公開の理由」を一行）。
+- 公開: `basyauma-technology/Haas-ja-v1.0-mlx-8bit`、`-4bit`（合格した版のみ）。カードはbf16版を基にCodex CLIで短く。bf16版カードとREADMEに量子化版へのリンクを追加。
+- 検証記録`docs/verification/2026-11-08-mac-mlx-quant.md`。
 
 ### 文書の方針（全タスク共通）
 
-- 公開文書（カード・README）の本文で「basyauma-technology」に言及しない。リポジトリ ID と URL は残す。
+- 公開文書（カード・README）の本文で「basyauma-technology」に言及しない。リポジトリIDとURLは残す。
 - 要点だけを短く。日本語→英語。数字・英字と日本語の間に半角スペースを入れない。
-- 文章の執筆・リライトは Codex CLI（`codex exec`）に任せ、事実・数値・免責・ライセンス表記は変えない。
+- 文章の執筆・リライトはCodex CLI（`codex exec`）に任せ、事実・数値・免責・ライセンス表記は変えない。

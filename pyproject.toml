@@ -27,7 +27,7 @@ eval = [
 haas-ja-local = "haas_ja_local.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.8", "psutil>=6"]  # psutil: WindowsのCIでbenchlib.peak_rss_bytesを試す
+dev = ["pytest>=8", "ruff>=0.8", "psutil>=6"]  # psutil: WindowsのCIでbenchlib.peak_memoryを試す
 
 [build-system]
 requires = ["uv_build>=0.9.0,<0.10"]
