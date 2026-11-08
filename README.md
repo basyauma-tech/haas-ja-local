@@ -26,7 +26,7 @@ print(result.text)
 haas-ja-local transcribe path/to/model audio.wav --json --timestamps
 ```
 
-30秒を超える音声は無音に近い位置で約30秒ごとに分けて認識し、結果をつなげます。
+30秒を超える音声は無音に近い位置で約30秒ごとに分けて認識し、結果をつなげます。MLX版はMetalのバッファキャッシュを既定で1GiBに抑えます（`HaasMLX.load`の`cache_limit_bytes`で変更でき、`None`なら設定しません）。
 
 ## 精度
 
@@ -66,7 +66,7 @@ print(result.text)
 haas-ja-local transcribe path/to/model audio.wav --json --timestamps
 ```
 
-Audio longer than 30 seconds is split at quiet points into chunks of about 30 seconds, and the results are joined.
+Audio longer than 30 seconds is split at quiet points into chunks of about 30 seconds, and the results are joined. The MLX backend caps the Metal buffer cache at 1 GiB by default (change it with `cache_limit_bytes` in `HaasMLX.load`; `None` leaves it untouched).
 
 ## Accuracy
 

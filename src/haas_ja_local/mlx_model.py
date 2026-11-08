@@ -425,6 +425,17 @@ def _weight_dtype(key: str, compute_dtype: mx.Dtype) -> mx.Dtype:
     return mx.float32
 
 
+# Metalバッファのキャッシュの既定の上限（1GiB）。33.8分の音声で、上限なしでは約12GBまで増えた
+DEFAULT_CACHE_LIMIT = 1 << 30
+
+
+def _cap_cache_limit(limit: int) -> None:
+    """キャッシュの上限をlimit以下にする。mlx 0.32にはget_cache_limitが無く、set_cache_limitが前の値を返す。"""
+    previous = mx.set_cache_limit(limit)
+    if previous < limit:
+        mx.set_cache_limit(previous)
+
+
 class HaasMLX(Backend):
     """Backendの実装。encodeはmx.array [T',d_model]を返し、stepはnumpyのlogitsを返す。"""
 
@@ -437,10 +448,20 @@ class HaasMLX(Backend):
         self.fb_np = np.array(featurizer.fb.astype(mx.float32))[0]
 
     @classmethod
-    def load(cls, model_dir: Path, *, compute_dtype: mx.Dtype = mx.bfloat16) -> HaasMLX:
+    def load(
+        cls,
+        model_dir: Path,
+        *,
+        compute_dtype: mx.Dtype = mx.bfloat16,
+        cache_limit_bytes: int | None = DEFAULT_CACHE_LIMIT,
+    ) -> HaasMLX:
         """convert-mlxが書いたディレクトリ（config.json・model.safetensors）を読む。
 
         キーの過不足・形状違いはload_weights(strict=True)がValueErrorにする。
+
+        cache_limit_bytes: mlxが解放後も再利用のために持つMetalバッファのキャッシュの上限（プロセス全体の設定）。
+        発話や断片ごとに長さが違うとキャッシュが再利用されずに増え続ける（mlxの既定の上限は搭載メモリ並み）ため、
+        既定で1GiBに抑える。現在の上限がこれ以下なら変えない（利用者が設定した小さい値を上げない）。Noneなら触らない。
         """
         model_dir = Path(model_dir)
         config = HaasConfig.from_json(model_dir / "config.json")
@@ -449,6 +470,8 @@ class HaasMLX(Backend):
         module.load_weights([(k, v.astype(_weight_dtype(k, compute_dtype))) for k, v in weights.items()], strict=True)
         module.eval()
         mx.eval(module.parameters())
+        if cache_limit_bytes is not None:
+            _cap_cache_limit(cache_limit_bytes)
         return cls(config, module, compute_dtype)
 
     def encode(self, mel: np.ndarray, n_frames: int) -> mx.array:

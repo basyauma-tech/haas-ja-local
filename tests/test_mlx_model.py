@@ -199,3 +199,36 @@ def test_bf16_default_stays_close_to_float32(parity_mlx_dir, models, parity_conf
     ref_logits, _ = f32.step(f32.encode(mel, 101), 0, parity_config.blank_id, f32.init_state())
     assert logits.dtype == np.float32
     assert np.abs(logits - ref_logits).max() / np.abs(ref_logits).max() < 3e-2
+
+
+def _current_cache_limit() -> int:
+    """mlx 0.32にはget_cache_limitが無いので、set_cache_limitの戻り値で読み、同じ値に戻す。"""
+    current = mx.set_cache_limit(0)
+    mx.set_cache_limit(current)
+    return current
+
+
+@pytest.mark.parametrize(
+    ("before", "requested", "expected"),
+    [
+        (1 << 40, 12345, 12345),  # 大きい上限は要求値まで下げる
+        (1000, 1 << 30, 1000),  # 利用者が設定した小さい上限は上げない
+        (1 << 40, None, 1 << 40),  # Noneなら触らない
+    ],
+)
+def test_load_caps_metal_buffer_cache(parity_mlx_dir, before, requested, expected):
+    previous = mx.set_cache_limit(before)
+    try:
+        HaasMLX.load(parity_mlx_dir, cache_limit_bytes=requested)
+        assert _current_cache_limit() == expected
+    finally:
+        mx.set_cache_limit(previous)
+
+
+def test_load_caps_cache_at_one_gib_by_default(parity_mlx_dir):
+    previous = mx.set_cache_limit(1 << 40)
+    try:
+        HaasMLX.load(parity_mlx_dir)
+        assert _current_cache_limit() <= 1 << 30
+    finally:
+        mx.set_cache_limit(previous)
