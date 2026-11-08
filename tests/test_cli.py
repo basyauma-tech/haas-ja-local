@@ -6,7 +6,7 @@ import soundfile as sf
 
 from haas_ja_local.cli import main
 from haas_ja_local.decode import TimedToken
-from haas_ja_local.transcribe import Transcript
+from haas_ja_local.pipeline import Transcript
 
 SR = 16000
 

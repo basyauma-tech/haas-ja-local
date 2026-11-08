@@ -6,7 +6,7 @@ torch・mlx・onnxruntimeはload_modelで選んだバックエンドだけを遅
 from haas_ja_local.audio import load_audio
 from haas_ja_local.config import HaasConfig
 from haas_ja_local.decode import TimedToken
-from haas_ja_local.transcribe import Transcript, load_model, transcribe
+from haas_ja_local.pipeline import Transcript, load_model, transcribe
 
 __version__ = "0.1.0"
 

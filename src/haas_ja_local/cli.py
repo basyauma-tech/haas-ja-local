@@ -9,8 +9,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from haas_ja_local.audio import load_audio
+from haas_ja_local.pipeline import Transcript, load_model, transcribe
 from haas_ja_local.tokenizer import Tokenizer
-from haas_ja_local.transcribe import Transcript, load_model, transcribe
 
 PROG = "haas-ja-local"
 

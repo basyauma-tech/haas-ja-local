@@ -35,6 +35,15 @@ def test_cut_is_center_of_quietest_window():
     assert split_at_quiet_points(audio)[0] == (0, int(29.55 * SR))
 
 
+def test_search_starts_at_half_chunk():
+    # chunk 10秒・探索8秒なら探索下限はmax(start+5秒, target-8秒)=5秒（15秒ではない）。
+    # 4.9〜5.1秒の無音のうち、5.0秒から始まる窓が範囲内で最初の無音窓になり、その中心5.05秒で切る
+    audio = np.random.default_rng(0).standard_normal(SR * 30).astype(np.float32)
+    audio[int(4.9 * SR) : int(5.1 * SR)] = 0.0
+    chunks = split_at_quiet_points(audio, chunk_seconds=10.0, search_seconds=8.0)
+    assert chunks[0] == (0, int(5.05 * SR))
+
+
 def test_quiet_gap_outside_search_range_is_ignored():
     # 無音が探索範囲（28〜32秒）の外の20秒にしかなければ、範囲内のどこかで切る
     audio = np.random.default_rng(0).standard_normal(SR * 70).astype(np.float32)
@@ -44,7 +53,7 @@ def test_quiet_gap_outside_search_range_is_ignored():
 
 
 def test_chunks_cover_audio_without_gaps_or_overlap():
-    # 100秒乱数 → 断片が連続して全体を覆い、各断片は32秒以下、最後以外は15秒以上
+    # 100秒乱数 → 断片が連続して全体を覆い、各断片は32.05秒（target+探索+窓の半分）以下、最後以外は15秒以上
     audio = np.random.default_rng(0).standard_normal(SR * 100).astype(np.float32)
     chunks = split_at_quiet_points(audio)
     assert len(chunks) >= 4
@@ -53,13 +62,20 @@ def test_chunks_cover_audio_without_gaps_or_overlap():
     for (_, end), (start, _) in itertools.pairwise(chunks):
         assert end == start
     for start, end in chunks:
-        assert end - start <= 32 * SR
+        assert end - start <= int(32.05 * SR)
     for start, end in chunks[:-1]:
         assert end - start >= 15 * SR
 
 
-def test_invalid_search_range_cuts_at_target():
-    # chunk_seconds=1.0では探索下限start+15秒が上限target+2秒を超えるので、target（1秒ごと）で切る
+def test_zero_search_cuts_at_center_of_target_window():
+    # 探索0秒では窓の開始位置がtargetの1点だけになり、その窓の中心（target+0.05秒）で切る
     audio = np.random.default_rng(0).standard_normal(int(SR * 3.5)).astype(np.float32)
-    chunks = split_at_quiet_points(audio, chunk_seconds=1.0)
-    assert chunks == [(0, SR), (SR, 2 * SR), (2 * SR, 3 * SR), (3 * SR, len(audio))]
+    chunks = split_at_quiet_points(audio, chunk_seconds=1.0, search_seconds=0.0)
+    assert [end for _, end in chunks] == [SR + 800, 2 * SR + 1600, 3 * SR + 2400, len(audio)]
+
+
+def test_invalid_search_range_cuts_at_target():
+    # 1.05秒・chunk 1秒・探索0秒: 下限target=1秒が上限len-窓長=0.95秒を超えるので、targetで切る
+    audio = np.random.default_rng(0).standard_normal(int(SR * 1.05)).astype(np.float32)
+    chunks = split_at_quiet_points(audio, chunk_seconds=1.0, search_seconds=0.0)
+    assert chunks == [(0, SR), (SR, len(audio))]

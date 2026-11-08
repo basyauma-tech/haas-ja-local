@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 
-MIN_CHUNK_SECONDS = 15.0
-
 
 def split_at_quiet_points(
     audio: np.ndarray,
@@ -18,14 +16,14 @@ def split_at_quiet_points(
     """音声を連続する断片[(start, end), ...]（サンプル番号、endは含まない）に分ける。
 
     startからtarget=start+chunk_secondsを狙う。残りがchunk_seconds以下なら最後まで1断片にする。
-    それ以外は窓の開始位置をmax(start+15秒, target-search_seconds)〜min(len-窓長, target+search_seconds)の
-    範囲で動かし、窓内の二乗和が最小の窓（同値なら最も前）の中心で切る。範囲が成立しなければtargetで切る。
+    それ以外は窓の開始位置をmax(start+chunk_seconds/2, target-search_seconds)〜
+    min(len-窓長, target+search_seconds)の範囲で動かし、窓内の二乗和が最小の窓（同値なら最も前）の中心で切る。
+    範囲が成立しなければtargetで切る。各断片は最長でchunk_seconds+search_seconds+window_seconds/2になる。
     """
     n = len(audio)
     chunk = round(chunk_seconds * sample_rate)
     search = round(search_seconds * sample_rate)
     window = round(window_seconds * sample_rate)
-    min_chunk = round(MIN_CHUNK_SECONDS * sample_rate)
     if chunk <= 0 or window <= 0:
         raise ValueError("chunk_seconds and window_seconds must be positive")
 
@@ -36,7 +34,7 @@ def split_at_quiet_points(
             chunks.append((start, n))
             break
         target = start + chunk
-        low = max(start + min_chunk, target - search)
+        low = max(start + chunk // 2, target - search)
         high = min(n - window, target + search)
         if low > high:
             cut = target

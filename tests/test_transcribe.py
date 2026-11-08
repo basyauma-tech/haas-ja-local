@@ -1,3 +1,4 @@
+import itertools
 import sys
 
 import numpy as np
@@ -6,7 +7,7 @@ import pytest
 import haas_ja_local
 from haas_ja_local.decode import TimedToken
 from haas_ja_local.features import mel_frames
-from haas_ja_local.transcribe import Transcript, load_model, transcribe
+from haas_ja_local.pipeline import Transcript, load_model, transcribe
 
 SR = 16000
 
@@ -111,13 +112,17 @@ def test_transcribe_short_audio_is_one_pass(tiny):
 def test_longform_offsets_increase(tiny):
     backend, tokenizer = tiny
     counting = CountingBackend(backend)
+    # 3.5秒の乱数に窓長（0.1秒）の無音を1.0・2.0・3.0秒から置く。閾値1秒では各無音窓の中心
+    # 1.05・2.05・3.05秒で切れて4断片になり、断片ごとにencodeする
     audio = np.random.default_rng(0).standard_normal(int(SR * 3.5)).astype(np.float32)
+    for second in (1, 2, 3):
+        audio[second * SR : second * SR + 1600] = 0.0
     result = transcribe(counting, tokenizer, audio, longform_threshold_seconds=1.0)
-    # 1秒ごとに4断片（最後は0.5秒）に分かれ、断片ごとにencodeする
-    assert counting.encoded_frames == [mel_frames(SR, backend.config)] * 3 + [mel_frames(SR // 2, backend.config)]
+    cuts = [0, SR + 800, 2 * SR + 800, 3 * SR + 800, len(audio)]
+    assert counting.encoded_frames == [mel_frames(b - a, backend.config) for a, b in itertools.pairwise(cuts)]
     assert len(result.offsets) == len(result.tokens)
     assert list(result.offsets) == sorted(result.offsets)
-    assert set(result.offsets) <= {0.0, 1.0, 2.0, 3.0}
+    assert set(result.offsets) <= {c / SR for c in cuts[:-1]}
 
 
 class SpacedTokenizer:
@@ -129,12 +134,20 @@ class SpacedTokenizer:
 
 def test_longform_joins_stripped_chunk_texts_and_offsets(tiny, monkeypatch):
     backend, _ = tiny
-    # 断片ごとに決まったトークンを返すgreedyに差し替え、テキストの連結とoffsetの付け方を確かめる
+    # 分割とgreedyを差し替え、断片ごとの固定トークンでテキストの連結とoffsetの付け方を確かめる
+    spans = [(0, SR), (SR, 2 * SR), (2 * SR, 3 * SR), (3 * SR, int(3.5 * SR))]
+    calls = []
+
+    def fake_split(audio, **kwargs):
+        calls.append((len(audio), kwargs))
+        return spans
+
     pieces = iter([[TimedToken(3, 0, 1)], [], [TimedToken(5, 2, 1), TimedToken(6, 4, 0)], [TimedToken(7, 1, 2)]])
-    # パッケージ属性のtranscribeは関数なので、モジュールはsys.modulesから取る
-    monkeypatch.setattr(sys.modules["haas_ja_local.transcribe"], "greedy_tdt", lambda b, e: next(pieces))
+    monkeypatch.setattr("haas_ja_local.pipeline.split_at_quiet_points", fake_split)
+    monkeypatch.setattr("haas_ja_local.pipeline.greedy_tdt", lambda b, e: next(pieces))
     audio = np.random.default_rng(0).standard_normal(int(SR * 3.5)).astype(np.float32)
     result = transcribe(backend, SpacedTokenizer(), audio, longform_threshold_seconds=1.0)
+    assert calls == [(int(3.5 * SR), {"sample_rate": SR, "chunk_seconds": 1.0})]
     assert [t.id for t in result.tokens] == [3, 5, 6, 7]
     assert result.offsets == (0.0, 2.0, 2.0, 3.0)
     assert result.text == "dfgh"
