@@ -5,6 +5,7 @@ import pytest
 
 import haas_ja_local
 from haas_ja_local.decode import TimedToken
+from haas_ja_local.features import mel_frames
 from haas_ja_local.transcribe import Transcript, load_model, transcribe
 
 SR = 16000
@@ -104,7 +105,7 @@ def test_transcribe_short_audio_is_one_pass(tiny):
     counting = CountingBackend(backend)
     audio = np.random.default_rng(0).standard_normal(int(SR * 3.5)).astype(np.float32)
     transcribe(counting, tokenizer, audio)
-    assert counting.encoded_frames == [int(SR * 3.5) // 160 + 1]
+    assert counting.encoded_frames == [mel_frames(int(SR * 3.5), backend.config)]
 
 
 def test_longform_offsets_increase(tiny):
@@ -113,7 +114,7 @@ def test_longform_offsets_increase(tiny):
     audio = np.random.default_rng(0).standard_normal(int(SR * 3.5)).astype(np.float32)
     result = transcribe(counting, tokenizer, audio, longform_threshold_seconds=1.0)
     # 1秒ごとに4断片（最後は0.5秒）に分かれ、断片ごとにencodeする
-    assert counting.encoded_frames == [SR // 160 + 1] * 3 + [SR // 2 // 160 + 1]
+    assert counting.encoded_frames == [mel_frames(SR, backend.config)] * 3 + [mel_frames(SR // 2, backend.config)]
     assert len(result.offsets) == len(result.tokens)
     assert list(result.offsets) == sorted(result.offsets)
     assert set(result.offsets) <= {0.0, 1.0, 2.0, 3.0}
