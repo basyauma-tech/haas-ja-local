@@ -1,0 +1,8 @@
+var/
+.venv/
+__pycache__/
+dist/
+*.onnx
+*.safetensors
+.pytest_cache/
+.ruff_cache/
