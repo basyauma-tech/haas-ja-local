@@ -1,6 +1,3 @@
-import io
-from dataclasses import replace
-
 import numpy as np
 import pytest
 
@@ -14,7 +11,6 @@ from haas_ja_local.decode import greedy_tdt  # noqa: E402
 from haas_ja_local.mlx_model import HaasMLX  # noqa: E402
 from haas_ja_local.pipeline import load_model  # noqa: E402
 from haas_ja_local.torch_model import load_torch_model  # noqa: E402
-from tests.conftest import TOKENIZER_MEMBER, make_state_dict, model_config_yaml, write_nemo  # noqa: E402
 
 # float32同士の比較（実測は6e-8程度）。CPU・GPUで和の順序が違っても通る幅
 RTOL = ATOL = 1e-5
@@ -25,31 +21,6 @@ def tiny_mlx_dir(tiny_nemo, tmp_path_factory):
     out = tmp_path_factory.mktemp("mlx")
     convert_nemo_to_mlx(tiny_nemo, out)
     return out
-
-
-@pytest.fixture(scope="module")
-def parity_config(tiny_config):
-    # n_mels=32でサブサンプリング後の周波数幅を4にする（チャンネルと周波数の平坦化順を検査できる）
-    return replace(tiny_config, n_mels=32, subsampling_channels=3)
-
-
-@pytest.fixture(scope="module")
-def parity_nemo(parity_config, tiny_tokenizer_model, tmp_path_factory):
-    """比較用のチェックポイント。重みをtinyの5倍（標準偏差0.5）にし、各ブロックの寄与を残差に埋もれさせない。"""
-    import torch
-
-    state_dict = make_state_dict(parity_config, seed=4)
-    for key, value in state_dict.items():
-        if value.is_floating_point() and not key.endswith("running_var") and not key.startswith("preprocessor."):
-            state_dict[key] = value * 5
-    weights = io.BytesIO()
-    torch.save(state_dict, weights)
-    members = {
-        TOKENIZER_MEMBER: tiny_tokenizer_model,
-        "./model_config.yaml": model_config_yaml(parity_config).encode("utf-8"),
-        "./model_weights.ckpt": weights.getvalue(),
-    }
-    return write_nemo(tmp_path_factory.mktemp("parity") / "parity.nemo", members)
 
 
 @pytest.fixture(scope="module")

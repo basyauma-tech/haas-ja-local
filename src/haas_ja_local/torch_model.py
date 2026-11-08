@@ -18,7 +18,7 @@ from torch import nn
 from haas_ja_local.architecture import KDA_L2_EPS, KDA_RMS_EPS, LAYER_NORM_EPS, subsampling_stages
 from haas_ja_local.config import HaasConfig
 from haas_ja_local.decode import Backend
-from haas_ja_local.nemo_checkpoint import read_nemo
+from haas_ja_local.nemo_checkpoint import NemoCheckpoint, read_nemo
 from haas_ja_local.tokenizer import Tokenizer
 
 # ---------------------------------------------------------------------------
@@ -432,12 +432,20 @@ class HaasTorch(nn.Module, Backend):
             return logits.float().numpy(), (rec, conv)
 
 
-def load_torch_model(nemo: Path, *, dtype: torch.dtype = torch.float32) -> tuple[HaasTorch, Tokenizer]:
-    """.nemoからHaasTorchとトークナイザを作る。bf16の重みはdtype（既定float32）に変換して読む。"""
-    ckpt = read_nemo(Path(nemo))
+def build_torch_model(ckpt: NemoCheckpoint, *, dtype: torch.dtype = torch.float32) -> HaasTorch:
+    """読み込み済みのチェックポイントからHaasTorchを作る。bf16の重みはdtypeに変換する。
+
+    キーや形状が合わなければload_state_dict(strict=True)のRuntimeError。
+    """
     model = HaasTorch(ckpt.config).to(dtype)
     state_dict = {k: v.to(dtype) if v.is_floating_point() else v for k, v in ckpt.state_dict.items()}
     model.load_state_dict(state_dict, strict=True)
     model.eval()
     model.requires_grad_(False)
-    return model, Tokenizer(ckpt.tokenizer_model)
+    return model
+
+
+def load_torch_model(nemo: Path, *, dtype: torch.dtype = torch.float32) -> tuple[HaasTorch, Tokenizer]:
+    """.nemoからHaasTorchとトークナイザを作る。bf16の重みはdtype（既定float32）に変換して読む。"""
+    ckpt = read_nemo(Path(nemo))
+    return build_torch_model(ckpt, dtype=dtype), Tokenizer(ckpt.tokenizer_model)

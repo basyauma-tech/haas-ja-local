@@ -1,6 +1,7 @@
 import io
 import os
 import tarfile
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -142,6 +143,31 @@ def tiny_nemo(tmp_path_factory, tiny_config, tiny_tokenizer_model) -> Path:
         "./model_weights.ckpt": weights.getvalue(),
     }
     return write_nemo(tmp_path_factory.mktemp("tiny") / "tiny.nemo", members)
+
+
+@pytest.fixture(scope="session")
+def parity_config(tiny_config):
+    # n_mels=32でサブサンプリング後の周波数幅を4にする（チャンネルと周波数の平坦化順を検査できる）
+    return replace(tiny_config, n_mels=32, subsampling_channels=3)
+
+
+@pytest.fixture(scope="session")
+def parity_nemo(parity_config, tiny_tokenizer_model, tmp_path_factory):
+    """比較用のチェックポイント。重みをtinyの5倍（標準偏差0.5）にし、各ブロックの寄与を残差に埋もれさせない。"""
+    import torch
+
+    state_dict = make_state_dict(parity_config, seed=4)
+    for key, value in state_dict.items():
+        if value.is_floating_point() and not key.endswith("running_var") and not key.startswith("preprocessor."):
+            state_dict[key] = value * 5
+    weights = io.BytesIO()
+    torch.save(state_dict, weights)
+    members = {
+        TOKENIZER_MEMBER: tiny_tokenizer_model,
+        "./model_config.yaml": model_config_yaml(parity_config).encode("utf-8"),
+        "./model_weights.ckpt": weights.getvalue(),
+    }
+    return write_nemo(tmp_path_factory.mktemp("parity") / "parity.nemo", members)
 
 
 @pytest.fixture

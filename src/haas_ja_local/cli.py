@@ -31,6 +31,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p = commands.add_parser("convert-mlx", help="convert the original .nemo checkpoint to an MLX model directory")
     p.add_argument("--nemo", type=Path, required=True, help="path to Haas-ja-v1.0.nemo")
     p.add_argument("--out", type=Path, required=True, help="output directory")
+
+    p = commands.add_parser("convert-onnx", help="convert the original .nemo checkpoint to an ONNX model directory")
+    p.add_argument("--nemo", type=Path, required=True, help="path to Haas-ja-v1.0.nemo")
+    p.add_argument("--out", type=Path, required=True, help="output directory (fp32/ and optionally int8/)")
+    p.add_argument("--int8", action="store_true", help="also write int8/ (ONNX Runtime dynamic quantization)")
+    p.add_argument("--exclude-decoder", action="store_true", help="with --int8: keep decoder_joint.onnx in fp32")
     return parser
 
 
@@ -94,12 +100,46 @@ def _run_convert_mlx(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_convert_onnx(args: argparse.Namespace) -> int:
+    if not args.nemo.is_file():
+        print(f"{PROG}: error: .nemo file not found: {args.nemo}", file=sys.stderr)
+        return 1
+    try:
+        from haas_ja_local.convert.onnx import export_onnx, quantize_int8
+
+        export_onnx(args.nemo, args.out)
+        if args.int8:
+            quantize_int8(args.out / "fp32", args.out / "int8", exclude_decoder=args.exclude_decoder)
+    except ImportError as e:
+        print(
+            f"{PROG}: error: conversion needs torch, onnx and onnxruntime: pip install 'haas-ja-local[convert]' ({e})",
+            file=sys.stderr,
+        )
+        return 1
+    except ValueError as e:
+        print(f"{PROG}: error: {e}", file=sys.stderr)
+        return 1
+    config = HaasConfig.from_json(args.out / "config.json")
+    for variant in ("fp32", "int8") if args.int8 else ("fp32",):
+        for name in sorted(p.name for p in (args.out / variant).iterdir()):
+            print(args.out / variant / name)
+    for name in ("config.json", "tokenizer.model", "preprocessor.npz"):
+        print(args.out / name)
+    print(f"source_sha256: {config.source_sha256}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _build_parser().parse_args(argv)
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    if args.command == "convert-onnx" and args.exclude_decoder and not args.int8:
+        parser.error("--exclude-decoder requires --int8")
     if args.command == "transcribe":
         return _run_transcribe(args)
     if args.command == "convert-mlx":
         return _run_convert_mlx(args)
+    if args.command == "convert-onnx":
+        return _run_convert_onnx(args)
     raise AssertionError(f"unhandled command {args.command!r}")
 
 
