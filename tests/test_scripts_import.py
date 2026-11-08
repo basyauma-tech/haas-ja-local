@@ -102,7 +102,7 @@ def test_configure_stdio_never_raises_on_cp932(monkeypatch):
     # Windowsでリダイレクトした標準出力はcp932。cp932に無い文字（𠮷、▁）でも落ちずに書ける
     import io
 
-    stream = io.TextIOWrapper(io.BytesIO(), encoding="cp932")
+    stream = io.TextIOWrapper(io.BytesIO(), encoding="cp932", newline="\n")  # 改行の変換はOSで違うので固定
     monkeypatch.setattr(sys, "stdout", stream)
     benchlib.configure_stdio()
     print("𠮷▁今日")
