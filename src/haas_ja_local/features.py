@@ -51,7 +51,7 @@ def log_mel(samples: np.ndarray, window: np.ndarray, fb: np.ndarray, config: Haa
     pad = n_fft // 2
     padded = np.pad(x, pad, mode="constant")
 
-    # (3) フレーム化し、win_length点の窓をn_fft点の中央に0埋めで置いて掛ける（torch.stftと同じ配置）
+    # (3)フレーム化し、win_length点の窓をn_fft点の中央に0埋めで置いて掛ける（torch.stftと同じ配置）
     frames = np.lib.stride_tricks.sliding_window_view(padded, n_fft)[::hop]
     if frames.shape[0] != n_frames + 1:
         raise RuntimeError(f"STFT produced {frames.shape[0]} frames, expected {n_frames + 1}")
@@ -60,7 +60,7 @@ def log_mel(samples: np.ndarray, window: np.ndarray, fb: np.ndarray, config: Haa
     full_window[left : left + win_length] = window
     spec = np.fft.rfft(frames * full_window, n=n_fft, axis=-1)
 
-    # (4) パワー → mel → log
+    # (4)パワー → mel → log
     power = (spec.real**2 + spec.imag**2).astype(np.float32)
     mel = np.log(fb @ power.T + np.float32(LOG_ZERO_GUARD)).astype(np.float32)
 
@@ -75,7 +75,7 @@ def log_mel(samples: np.ndarray, window: np.ndarray, fb: np.ndarray, config: Haa
         normalized = ((mel - mean) / (std + NORMALIZE_EPS)).astype(np.float32)
     normalized[:, n_frames:] = 0
 
-    # (6) 時間軸をpad_toの倍数まで0で埋める
+    # (6)時間軸をpad_toの倍数まで0で埋める
     remainder = normalized.shape[1] % config.pad_to
     if remainder:
         normalized = np.pad(normalized, ((0, 0), (0, config.pad_to - remainder)))

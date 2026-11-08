@@ -64,7 +64,7 @@ class ConvSubsampling(nn.Module):
 
 
 def _time_mask(x: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
-    """x [B,C,T,F]に掛ける時間軸のマスク [B,1,T,1]。"""
+    """x [B,C,T,F]に掛ける時間軸のマスク[B,1,T,1]。"""
     t = torch.arange(x.shape[2], device=x.device)
     return (t[None, :] < lengths[:, None]).to(x.dtype)[:, None, :, None]
 
@@ -254,7 +254,7 @@ class KimiDeltaAttention(nn.Module):
         rec: torch.Tensor,
         conv: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
     ) -> tuple[torch.Tensor, torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-        """x [B,1,P]、rec [B,H,V,K]、conv（q,k,v各 [B,D,W]）→ (y [B,1,P], rec', conv')。"""
+        """x [B,1,P]、rec [B,H,V,K]、conv（q,k,v各[B,D,W]）→ (y [B,1,P], rec', conv')。"""
         b = x.shape[0]
         h, kd = self.n_heads, self.head_dim
         x = x[:, 0]
@@ -295,9 +295,9 @@ class _KDAStack(nn.Module):
 
 
 class KDAPredictionNetwork(nn.Module):
-    """embed → 各層 x + layer(norms[i](x)) → final_norm。状態は(rec, conv)各 [L,B,kda_state_width]に詰める。
+    """embed → 各層でx + layer(norms[i](x)) → final_norm。状態は(rec, conv)各[L,B,kda_state_width]に詰める。
 
-    rec行はS [H,V,K]をその順に平坦化、conv行はq・k・vのキャッシュ [D,W]を順に平坦化して連結し、残りは0。
+    rec行はS [H,V,K]をその順に平坦化、conv行はq・k・vのキャッシュ[D,W]を順に平坦化して連結し、残りは0。
     """
 
     def __init__(self, config: HaasConfig) -> None:
@@ -355,7 +355,7 @@ class _Decoder(nn.Module):
 
 
 # ---------------------------------------------------------------------------
-# Joint と全体
+# Jointと全体
 
 
 class Joint(nn.Module):
