@@ -94,7 +94,7 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 
 詳細・再現手順: [精度と速度](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-mlx.md)、[数値一致](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-numerics.md)。
 
-MLX版（bf16）とPyTorch参照実装（float32）の比較では、FLEURS650発話中632発話（97.2%）でトークン列と本文が一致し、異なる18発話のうち12発話は句読点だけの違いでした。
+MLX版（bf16）とPyTorch参照実装（float32）の比較では、FLEURS 650発話中632発話（97.2%）でトークン列と本文が一致し、異なる18発話のうち12発話は句読点だけの違いでした。
 
 ## 実装の確認
 
@@ -142,10 +142,10 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 | ファイル | 内容 |
 |---|---|
 | `model.safetensors` | bf16、1,231,827,296バイト、SHA-256: `96600ed4ca8a4d9d45e6ed6bfd276ab9109da3f1c9e20e2bb0870e6f894fe5e4` |
-| `config.json` | モデル設定 |
+| `config.json` | |
 | `tokenizer.model` | SentencePiece BPE、3,072トークン |
-| `LICENSE` | ライセンス |
-| `NOTICE` | 帰属情報 |
+| `LICENSE` | |
+| `NOTICE` | |
 
 ## 制限事項
 
@@ -277,10 +277,10 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 | File | Contents |
 |---|---|
 | `model.safetensors` | bf16; 1,231,827,296 bytes; SHA-256: `96600ed4ca8a4d9d45e6ed6bfd276ab9109da3f1c9e20e2bb0870e6f894fe5e4` |
-| `config.json` | Model configuration |
+| `config.json` | |
 | `tokenizer.model` | SentencePiece BPE, 3,072 tokens |
-| `LICENSE` | License |
-| `NOTICE` | Attribution |
+| `LICENSE` | |
+| `NOTICE` | |
 
 ## Limitations
 

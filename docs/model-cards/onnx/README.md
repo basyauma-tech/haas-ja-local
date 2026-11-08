@@ -30,7 +30,7 @@ fp32は元のbf16をfloat32化。int8はONNX Runtimeの動的量子化版です�
 
 - ONNX Runtime対応CPU向け。NeMo・CUDA・Triton不要。推論コード: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local)。
 - Python >=3.12,<3.13。実行時依存はonnxruntime・numpy・sentencepiece・soundfile・soxr。torch不要。
-- 計測はApple M5 Max（Apple Silicon）（128GB）のCPUのみ。Superコア6・Performanceコア12、macOS 27.2（26B123）、Python 3.12.15、onnxruntime 1.31.1（`CPUExecutionProvider`、`ORT_ENABLE_ALL`）、numpy 2.5.4。
+- 計測はApple M5 Max（128GB）のCPUのみ。Superコア6・Performanceコア12、macOS 27.2（26B123）、Python 3.12.15、onnxruntime 1.31.1（`CPUExecutionProvider`、`ORT_ENABLE_ALL`）、numpy 2.5.4。
 - x86_64での速度・精度、Linux・Windowsは未計測。int8の精度は命令セットで変わる可能性あり。
 
 ## 使い方
@@ -56,7 +56,7 @@ haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant fp
 haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant int8 --threads 4
 ```
 
-- `--threads`はONNX Runtimeのスレッド数。`fp32/`があれば既定はfp32、それ以外はint8。
+- `fp32/`があれば既定はfp32、それ以外はint8。
 - 入力はsoundfile対応形式（WAV・FLACなど）。複数チャンネルを平均してモノラル化し、soxrで16kHzへ変換。
 - 30秒超は逐次分割。各断片の先頭から30秒±2秒内で、最も静かな0.1秒窓の中心を切断点とし、認識結果を連結。
 - `--json --timestamps`で1ファイル1行のJSONとトークン開始・終了時刻を出力。sherpa-onnxでの動作は未確認。
@@ -119,7 +119,7 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 | 変換ツール | haas-ja-local 0.1.0、書き出し`e4968f2`、評価・計測`3d1050b` |
 | 書き出し環境 | torch 2.15.0、onnx 1.23.2、onnxruntime 1.31.1 |
 
-- 元のbf16をfloat32化し、PyTorch参照実装からONNXへ書き出し。
+- PyTorch参照実装からONNXへ書き出し。
 - int8はper-channel動的量子化、`reduce_range=False`、量子化前の前処理なし。エンコーダ・デコーダとも量子化し、エンコーダ重みは両版とも外部`.data`に保存。
 - `--exclude-decoder`で再書き出しした際、fp32の全ファイルとint8のエンコーダはバイト単位で一致。別の量子化設定は未測定。
 
@@ -145,7 +145,7 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 | `LICENSE` | 11,358 | — |
 | `NOTICE` | 741 | — |
 
-共通ファイルはモデル設定、SentencePieceトークナイザ、前処理の窓・メルフィルタバンク、ライセンス・帰属情報。両版のチェックサムは検証済み。
+共通ファイルはモデル設定、SentencePieceトークナイザ、前処理の窓・メルフィルタバンク。両版のチェックサムは検証済み。
 
 ### 入出力仕様
 
@@ -165,7 +165,7 @@ opset 17。Bはバッチ、Tは入力フレーム数、T'はエンコード後�
 - 元モデル同様、フィラーが抜けやすく、漢字・かな・数字の表記指定は不可。無音・雑音で短語を出す可能性あり。
 - 30秒超の分割でCERが悪化。FLEURS 150発話を連結した33.8分音声のfp32のCER strictは、発話別4.10%、分割後6.39%。分割後のstrict/flex/kanaは6.39/5.70/4.62%でPyTorchと一致し、本文も同一。ONNXの数値誤差による悪化ではない。
 - 同一話者が話し続ける実際の長時間録音は未測定。
-- バッチ1のみ。バッチ2以上は未測定。ストリーミング・話者ラベル・公式Haas-ASRのカスタム語彙は未対応。
+- バッチ1のみ。ストリーミング・話者ラベル・公式Haas-ASRのカスタム語彙は未対応。
 - 時刻は80ms刻みのトークン単位。単語単位ではない。
 
 ## ライセンスと帰属
@@ -187,7 +187,7 @@ fp32 casts the original bf16 to float32; int8 uses ONNX Runtime dynamic quantiza
 
 - CPU inference with ONNX Runtime; no NeMo, CUDA or Triton. Inference code: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local).
 - Python >=3.12,<3.13; runtime dependencies: onnxruntime, numpy, sentencepiece, soundfile, soxr. No torch needed.
-- Measured only on the CPU of an Apple M5 Max (Apple Silicon) (128 GB): 6 Super and 12 Performance cores, macOS 27.2 (26B123), Python 3.12.15, onnxruntime 1.31.1 (`CPUExecutionProvider`, `ORT_ENABLE_ALL`), numpy 2.5.4.
+- Measured only on the CPU of an Apple M5 Max (128 GB): 6 Super and 12 Performance cores, macOS 27.2 (26B123), Python 3.12.15, onnxruntime 1.31.1 (`CPUExecutionProvider`, `ORT_ENABLE_ALL`), numpy 2.5.4.
 - Speed and accuracy on x86_64, Linux and Windows are unmeasured. int8 accuracy may depend on the instruction set.
 
 ## Usage
@@ -213,7 +213,7 @@ haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant fp
 haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant int8 --threads 4
 ```
 
-- `--threads` sets ONNX Runtime threads. Defaults to fp32 when `fp32/` exists, otherwise int8.
+- Defaults to fp32 when `fp32/` exists, otherwise int8.
 - Input: soundfile formats (WAV, FLAC, etc.). Channels are averaged to mono; soxr resamples to 16 kHz.
 - Audio above 30 seconds is split sequentially at the centre of the quietest 0.1-second window within 30 ± 2 seconds of each piece's start. Results are joined.
 - `--json --timestamps` emits one JSON line per file with token start/end times. Execution with sherpa-onnx is unverified.
@@ -276,7 +276,7 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 | Converter | haas-ja-local 0.1.0; export `e4968f2`, evaluation/measurement `3d1050b` |
 | Export environment | torch 2.15.0, onnx 1.23.2, onnxruntime 1.31.1 |
 
-- Original bf16 cast to float32 and exported from the PyTorch reference to ONNX.
+- Exported from the PyTorch reference to ONNX.
 - int8: per-channel dynamic quantization, `reduce_range=False`, no pre-quantization preprocessing. Both encoder and decoder are quantized; both variants store encoder weights in external `.data` files.
 - Re-exporting with `--exclude-decoder` gave byte-identical fp32 files and int8 encoder files. Other quantization settings are unmeasured.
 
@@ -302,7 +302,7 @@ Sizes in bytes. SHA-256 values are copied from each variant's `SHA256SUMS`; “�
 | `LICENSE` | 11,358 | — |
 | `NOTICE` | 741 | — |
 
-Shared files provide model configuration, the SentencePiece tokenizer, preprocessing window/mel filterbank, license and attribution. Both checksum manifests have been verified.
+Shared files provide model configuration, the SentencePiece tokenizer and preprocessing window/mel filterbank. Both checksum manifests have been verified.
 
 ### Input/output specification
 
@@ -322,7 +322,7 @@ Opset 17. B is batch size, T is input frames, and T' is encoded frames.
 - As with the original model, fillers may be omitted; kanji/kana/numeral style cannot be selected. Silence/noise may produce short words.
 - Splitting above 30 seconds raises CER. For 150 FLEURS utterances joined into 33.8 minutes, fp32 CER strict was 4.10% individually and 6.39% after splitting. Split strict/flex/kana scores were 6.39/5.70/4.62%, matching PyTorch; text was also identical. The degradation is not due to ONNX numerical error.
 - Real long recordings of one continuous speaker are unmeasured.
-- Batch 1 only; batch sizes ≥2 are unmeasured. No streaming, speaker labels or official Haas-ASR custom vocabulary.
+- Batch 1 only. No streaming, speaker labels or official Haas-ASR custom vocabulary.
 - Token timestamps use 80 ms steps; they are not word timestamps.
 
 ## License and attribution

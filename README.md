@@ -4,7 +4,7 @@
 
 **非公式の変換・推論パッケージです。** Third Intelligence, Inc.とは提携・承認・後援の関係にありません。
 
-[Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)をNeMo・CUDA・Tritonなしでローカル実行します。MLX重みは元のbf16の値を保持し、軸の並べ替えと推論に不要な値の除去のみ。Hugging Face上の分類はquantizedですが、bf16のMLX版は量子化していません。
+[Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)をNeMo・CUDA・Tritonなしでローカル実行します。MLX重みは元のbf16の値を保持し、軸の並べ替えと推論に不要な値の除去のみ。
 
 | 形式 | Hugging Face | 状態 |
 |---|---|---|
@@ -65,7 +65,7 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 
 `convert-mlx --quantize 8`は線形層を8bitに量子化した版を出力（mlxが必要なためmacOSのみ）。
 
-`convert-onnx --int8`は動的量子化版を`int8/`にも出力（精度検証中）。`fp32/`があればfp32を使用。`transcribe --variant int8`で切り替えます。
+`convert-onnx --int8`は動的量子化版を`int8/`にも出力。int8はFLEURSでCER strictが公表値から+0.38ポイント外れたため参考扱い。既定はfp32。`transcribe --variant int8`で切り替えます。
 
 公開MLX版の元`.nemo`のSHA-256: `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`。
 
@@ -87,7 +87,7 @@ Apache-2.0（[LICENSE](LICENSE)、[NOTICE](NOTICE)）。元モデル: Third Inte
 
 **This is an unofficial conversion/inference package.** It is not affiliated with, endorsed by, or sponsored by Third Intelligence, Inc.
 
-Run [Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) locally without NeMo, CUDA or Triton. MLX preserves original bf16 values, only rearranging axes and removing unused values. Hugging Face classifies it as quantized, but the bf16 MLX version is not quantized.
+Run [Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) locally without NeMo, CUDA or Triton. MLX preserves original bf16 values, only rearranging axes and removing unused values.
 
 | Format | Hugging Face | Status |
 |---|---|---|
@@ -140,7 +140,7 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 
 `convert-mlx --quantize 8` writes a version with 8-bit linear layers (needs mlx, so macOS only).
 
-`convert-onnx --int8` also exports dynamic-quantized weights to `int8/` (accuracy under verification). Uses fp32 if `fp32/` exists; select int8 with `transcribe --variant int8`.
+`convert-onnx --int8` also exports dynamic-quantized weights to `int8/`. int8 is provided for reference only (FLEURS CER strict +0.38 points above the published value); fp32 is the default. Select int8 with `transcribe --variant int8`.
 
 Published MLX source `.nemo` SHA-256: `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`.
 

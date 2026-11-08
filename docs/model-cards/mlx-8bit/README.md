@@ -25,7 +25,7 @@ tags:
 
 **非公式の変換物です。** [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)の線形層を8bit量子化したMLX版です。Third Intelligence, Inc.とは提携・承認・後援の関係にありません。
 
-重みは約0.73GBで、[bf16版](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx)の約0.59倍。ピークメモリは減りますが、検証機での速度はbf16版より約14%遅く、速くはなりません。
+重みは約0.73GBで、[bf16版](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx)の約0.59倍。ピークメモリは減りますが、検証機ではRTFx中央値でbf16より約14%低い（速くはならない）結果でした。
 
 ## 概要・環境
 
@@ -34,7 +34,7 @@ tags:
 
 ## 使い方
 
-bf16版と同じコードで動きます。モデルのパスだけ変更します。`hf`がなければ`pip install huggingface_hub`で導入してください。
+bf16版と同じコードで動きます。`hf`がなければ`pip install huggingface_hub`で導入してください。
 
 ```sh
 pip install "haas-ja-local[mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"
@@ -65,17 +65,17 @@ asr-ja-bench v1.1をbf16版と同じ手順で評価。CER strictの単位は%、
 
 公表値との差は範囲の近い端から計算し、範囲内なら0。8bitは合格基準の差0.3ポイント以内です。精度調整はしていません。
 
-**4bit版は精度基準を外れたため公開していません。** CER strictはFLEURS3.70%（公表値との差+0.03ポイント）、JVNV5.00%（+0.47ポイント）でした。
+**4bit版は精度基準を外れたため公開していません。** CER strictはFLEURS 3.70%（公表値との差+0.03ポイント）、JVNV 5.00%（+0.47ポイント）でした。
 
 詳細・再現手順: [量子化版の検証記録](https://github.com/basyauma-tech/haas-ja-local/blob/main/docs/verification/2026-11-08-mac-mlx-quant.md)。
 
 ## 実装の確認
 
-小さな乱数モデルで変換・読み込みの往復、キーと形状、量子化しない値のビット一致、CLI引数を検証済み。逆量子化した重みをfloat32で持つモデルとの相対誤差は1e-5未満でした。実モデルとPyTorch（float32）のトークン列一致は未検証です。
+小さな乱数モデルで変換・読み込みの往復、キーと形状、量子化しない値のビット一致を検証済み。8bit版の本文はbf16版とFLEURS 88.8%・JVNV 84.9%の発話で一致しました。逆量子化した重みをfloat32で持つモデルとの相対誤差は1e-5未満でした。実モデルとPyTorch（float32）のトークン列一致は未検証です。
 
 ## 速度とメモリ
 
-上記M5 Max、バッチ1、逐次認識。FLEURSの先頭3発話をウォームアップとして除いた647発話で集計。キャッシュ上限は既定の1GiB。bf16は比較のため同じ時間帯に再測定した値です。GB＝10^9バイト。
+上記M5 Max、バッチ1、逐次認識。FLEURSの先頭3発話をウォームアップとして除いた647発話で集計。キャッシュ上限は既定の1GiB。bf16は同じ時間帯に再測定した値です。GB＝10^9バイト。
 
 | 項目 | bf16 | 8bit |
 |---|---:|---:|
@@ -88,6 +88,8 @@ asr-ja-bench v1.1をbf16版と同じ手順で評価。CER strictの単位は%、
 
 ## 変換方法
 
+`--quantize`はApple SiliconのmacOSで`pip install "haas-ja-local[convert,mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"`が必要です。
+
 すべての線形層に`mlx.nn.quantize`の8bitアフィン量子化（グループサイズ64）を適用。畳み込み・正規化・埋め込みはbf16のままです。他の非量子化値もbf16版とビット単位で同じです。
 
 ```sh
@@ -98,7 +100,7 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 
 ## ファイル一覧
 
-`var/dist/publish/mlx-8bit/`の実ファイルを`ls -l`と`shasum -a 256`で確認。サイズはバイトです。
+サイズはバイト。
 
 | ファイル | サイズ | SHA-256 |
 |---|---:|---|
@@ -125,7 +127,7 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 
 **This is an unofficial conversion** of [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) to MLX with 8-bit linear layers. It is not affiliated with, endorsed by, or sponsored by Third Intelligence, Inc.
 
-Weights occupy about 0.73 GB, approximately 0.59 times the [bf16 version](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx). Peak memory decreases, but measured speed is about 14% lower than bf16; quantization does not make inference faster on the tested machine.
+Weights occupy about 0.73 GB, approximately 0.59 times the [bf16 version](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx). Peak memory decreases, but median RTFx is about 14% lower than bf16; quantization does not make inference faster on the tested machine.
 
 ## Overview and requirements
 
@@ -134,7 +136,7 @@ Weights occupy about 0.73 GB, approximately 0.59 times the [bf16 version](https:
 
 ## Usage
 
-Uses the same code as bf16; change only the model path. Install `hf` with `pip install huggingface_hub` if needed.
+Uses the same code as bf16. Install `hf` with `pip install huggingface_hub` if needed.
 
 ```sh
 pip install "haas-ja-local[mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"
@@ -171,7 +173,7 @@ Details/reproduction (Japanese): [quantization verification](https://github.com/
 
 ## Implementation verification
 
-Small random-model tests cover conversion/loading round trips, keys, shapes, bit-identical unquantized values and CLI arguments. Relative error against a model holding dequantized weights in float32 was below 1e-5. Token agreement between the full quantized model and PyTorch (float32) is unverified.
+Small random-model tests cover conversion/loading round trips, keys, shapes and bit-identical unquantized values. The 8-bit version produced identical text to bf16 for 88.8% of FLEURS utterances and 84.9% of JVNV utterances. Relative error against a model holding dequantized weights in float32 was below 1e-5. Token agreement between the full quantized model and PyTorch (float32) is unverified.
 
 ## Speed and memory
 
@@ -188,6 +190,8 @@ M5 Max setup above, batch 1, sequential recognition. 647 FLEURS utterances after
 
 ## Conversion
 
+`--quantize` requires `pip install "haas-ja-local[convert,mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"` on macOS with Apple Silicon.
+
 All linear layers use `mlx.nn.quantize` with 8-bit affine quantization and group size 64. Convolutions, normalization and embeddings remain bf16. Other unquantized values are also bit-identical to bf16.
 
 ```sh
@@ -198,7 +202,7 @@ For conversion setup and source `.nemo` download, see [bf16 conversion](https://
 
 ## Files
 
-Sizes in bytes and SHA-256 values were checked against `var/dist/publish/mlx-8bit/` with `ls -l` and `shasum -a 256`.
+Sizes in bytes.
 
 | File | Size | SHA-256 |
 |---|---:|---|
