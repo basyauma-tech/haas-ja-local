@@ -1,5 +1,7 @@
 import json
 import re
+import stat
+import sys
 
 import pytest
 import torch
@@ -17,6 +19,8 @@ def test_convert_tiny_nemo_writes_expected_files(tiny_nemo, tiny_config, tiny_to
     out = tmp_path / "mlx"
     convert_nemo_to_mlx(tiny_nemo, out)
     assert {p.name for p in out.iterdir()} == {"model.safetensors", "config.json", "tokenizer.model"}
+    if sys.platform != "win32":
+        assert stat.S_IMODE((out / "model.safetensors").stat().st_mode) == 0o644
     cfg = HaasConfig.from_json(out / "config.json")
     assert len(cfg.source_sha256) == 64
     assert cfg == read_nemo(tiny_nemo).config

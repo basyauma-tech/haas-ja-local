@@ -7,6 +7,7 @@ mlx.nnの軸順（チャンネルが最後）へ並べ替える。num_batches_tr
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -103,6 +104,9 @@ def convert_nemo_to_mlx(nemo: Path, out_dir: Path) -> None:
         "source_sha256": ckpt.sha256,
         "converter": f"haas-ja-local {__version__}",
     }
-    save_file(tensors, str(out_dir / "model.safetensors"), metadata=metadata)
+    weights_path = out_dir / "model.safetensors"
+    save_file(tensors, str(weights_path), metadata=metadata)
+    # safetensorsは一時ファイル経由で書くため0600になる。他のファイルと同じ権限にそろえる
+    os.chmod(weights_path, 0o644)
     ckpt.config.to_json(out_dir / "config.json")
     (out_dir / "tokenizer.model").write_bytes(ckpt.tokenizer_model)
