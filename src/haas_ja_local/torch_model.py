@@ -62,12 +62,30 @@ class ConvSubsampling(nn.Module):
         self.conv = nn.Sequential(*layers)
         self.out = nn.Linear(ch * freq, config.d_model)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """x [B,T,F] → [B,T/8,d_model]。"""
-        x = self.conv(x.unsqueeze(1))  # [B,C,T',F']
+    def forward(self, x: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
+        """x [B,T,F]、lengths [B] → [B,ceil(T/8),d_model]。
+
+        NeMoのMaskedConvSequentialと同じく、各層の前で時間軸の有効長より後ろを0にする。
+        有効長はstride 2の畳み込みごとにceil(L/2)へ更新する。これをしないと、有効長が8の倍数でないとき
+        最後の有効フレームが0埋め部分（バイアスとReLUで0でなくなった値）を読み、自己注意で全フレームへ広がる。
+        """
+        x = x.unsqueeze(1)  # [B,1,T,F]
+        lengths = lengths.to(torch.int64)
+        for layer in self.conv:
+            x = x * _time_mask(x, lengths)
+            x = layer(x)
+            if isinstance(layer, nn.Conv2d) and layer.stride[0] != 1:
+                lengths = (lengths + 2 * layer.padding[0] - layer.kernel_size[0]) // layer.stride[0] + 1
+        x = x * _time_mask(x, lengths)  # [B,C,T',F']
         b, _, t, _ = x.shape
         x = x.transpose(1, 2).reshape(b, t, -1)  # チャンネルが先、周波数が後
         return self.out(x)
+
+
+def _time_mask(x: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
+    """x [B,C,T,F]に掛ける時間軸のマスク [B,1,T,1]。"""
+    t = torch.arange(x.shape[2], device=x.device)
+    return (t[None, :] < lengths[:, None]).to(x.dtype)[:, None, :, None]
 
 
 class RelPositionalEncoding(nn.Module):
@@ -193,13 +211,14 @@ class ConformerEncoder(nn.Module):
     def forward(self, mel: torch.Tensor, length: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """mel [B,n_mels,T], length [B] → (enc [B,d_model,T'], lengths [B])。
 
-        マスクを使わず、サブサンプリング後に最長の有効長で切り詰める。単一発話（B=1）での利用を前提とし、
-        長さの異なる発話をまとめて渡すと短い発話の出力はNeMoと一致しない。
+        サブサンプリングの中はNeMoと同じく有効長でマスクする。その後の自己注意はマスクを使わず、
+        最長の有効長で切り詰める。単一発話（B=1）での利用を前提とし、長さの異なる発話をまとめて渡すと
+        短い発話の出力はNeMoと一致しない。
         """
         lengths = length.to(torch.int64)
+        x = self.pre_encode(mel.transpose(1, 2), lengths)
         for _ in range(_subsampling_stages(self.config)):
             lengths = torch.div(lengths + 1, 2, rounding_mode="floor")
-        x = self.pre_encode(mel.transpose(1, 2))
         x = x[:, : int(lengths.max())]
         x, pos_emb = self.pos_enc(x)
         for layer in self.layers:

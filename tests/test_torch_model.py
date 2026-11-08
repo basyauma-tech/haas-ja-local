@@ -59,17 +59,31 @@ def test_encoded_length_examples():
     assert [encoded_length(n, HaasConfig()) for n in (0, 1, 8, 9, 16, 17, 100)] == [0, 1, 1, 2, 2, 3, 13]
 
 
-def test_encoder_ignores_padding_frames(tiny_nemo, tiny_config):
-    # マスク無しで切り詰める前提: 有効長より後ろのmelを変えても出力は変わらない（サブサンプリングの受容野を除く）
+@pytest.mark.parametrize("n_frames", [33, 35, 38, 40, 41, 47, 48])
+def test_encoder_ignores_padding_frames(tiny_nemo, tiny_config, n_frames):
+    # NeMoのMaskedConvSequentialと同じく、サブサンプリングの各層の前で有効長より後ろを0にする。
+    # そのため有効長の直後からmelを変えても出力は変わらない
     model, _ = load_torch_model(tiny_nemo)
     gen = torch.Generator().manual_seed(1)
     mel = torch.randn(1, tiny_config.n_mels, 64, generator=gen)
     other = mel.clone()
-    other[..., 48:] = torch.randn(1, tiny_config.n_mels, 16, generator=gen)
+    other[..., n_frames:] = torch.randn(1, tiny_config.n_mels, 64 - n_frames, generator=gen)
     with torch.inference_mode():
-        a, _ = model.encoder(mel, torch.tensor([33]))
-        b, _ = model.encoder(other, torch.tensor([33]))
+        a, _ = model.encoder(mel, torch.tensor([n_frames]))
+        b, _ = model.encoder(other, torch.tensor([n_frames]))
     torch.testing.assert_close(a, b)
+
+
+@pytest.mark.parametrize("n_frames", [33, 34, 36, 40, 41, 48])
+def test_encoder_padded_input_matches_unpadded(tiny_nemo, tiny_config, n_frames):
+    # 0埋めしたmelでも、有効長で切り詰めたmelと同じ出力になる（中間段の有効長外もマスクされる）
+    model, _ = load_torch_model(tiny_nemo)
+    mel = torch.zeros(1, tiny_config.n_mels, 64)
+    mel[..., :n_frames] = torch.randn(1, tiny_config.n_mels, n_frames, generator=torch.Generator().manual_seed(2))
+    with torch.inference_mode():
+        padded, _ = model.encoder(mel, torch.tensor([n_frames]))
+        unpadded, _ = model.encoder(mel[..., :n_frames], torch.tensor([n_frames]))
+    torch.testing.assert_close(padded, unpadded, rtol=1e-5, atol=1e-5)
 
 
 def test_conv_subsampling_flattens_channel_then_freq(tiny_config):
@@ -87,7 +101,7 @@ def test_conv_subsampling_flattens_channel_then_freq(tiny_config):
     w = sub.out.weight.view(c.d_model, c.subsampling_channels, 4)  # 入力列はch*4+freq
     expected = torch.einsum("bctf,dcf->btd", h, w) + sub.out.bias
     with torch.inference_mode():
-        torch.testing.assert_close(sub(x), expected, rtol=1e-5, atol=1e-5)
+        torch.testing.assert_close(sub(x, torch.tensor([20])), expected, rtol=1e-5, atol=1e-5)
 
 
 def test_rel_positional_encoding_values():
