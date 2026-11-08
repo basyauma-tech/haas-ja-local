@@ -30,7 +30,7 @@ fp32は元のbf16をfloat32化。int8はONNX Runtimeの動的量子化版です�
 
 - ONNX Runtime対応CPU向け。NeMo・CUDA・Triton不要。推論コードは別途[haas-ja-local](https://github.com/basyauma-tech/haas-ja-local)を使用。
 - Python >=3.12,<3.13。実行時依存はonnxruntime・numpy・sentencepiece・soundfile・soxr。torch不要。
-- 計測はApple SiliconのApple M5 Max（128GB）のCPUのみ。Superコア6・Performanceコア12、macOS 27.2（26B123）、Python 3.12.15、onnxruntime 1.31.1（`CPUExecutionProvider`、`ORT_ENABLE_ALL`）、numpy 2.5.4。
+- 計測はApple M5 Max（Apple Silicon）（128GB）のCPUのみ。Superコア6・Performanceコア12、macOS 27.2（26B123）、Python 3.12.15、onnxruntime 1.31.1（`CPUExecutionProvider`、`ORT_ENABLE_ALL`）、numpy 2.5.4。
 - x86_64での速度・精度、Linux・Windowsは未計測。int8の精度は命令セットで変わる可能性あり。
 
 ## 使い方
@@ -50,9 +50,10 @@ from haas_ja_local import load_audio, load_model, transcribe
 backend, tokenizer = load_model("Haas-ja-v1.0-onnx")
 result = transcribe(backend, tokenizer, load_audio("audio.wav"))
 print(result.text)
+backend, tokenizer = load_model("Haas-ja-v1.0-onnx", variant="int8", threads=4)
 ```
 
-CLI（`DIR`はモデルディレクトリ、`AUDIO`は音声ファイル。次の例ではそれぞれ指定済み）:
+CLI:
 
 ```sh
 haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant fp32 --threads 4
@@ -66,7 +67,7 @@ haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant in
 
 ## 精度
 
-[asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench)v1.1、[jacer](https://github.com/third-intelligence/jacer)v1.2.0。単位は%。FLEURSは650発話（2.36時間）、JVNVは1,375発話（3.33時間）。
+[asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench) v1.1、[jacer](https://github.com/third-intelligence/jacer) v1.2.0。単位は%。FLEURSは650発話（2.36時間）、JVNVは1,375発話（3.33時間）。
 
 | 版 | サブセット | CER strict | CER flex | CER kana | 公表値strict | 差（ポイント） | 判定 |
 |---|---|---:|---:|---:|---:|---:|---|
@@ -102,7 +103,7 @@ PyTorch参照実装自体も第三者のfloat32 ONNXと6発話で比較済み。
 
 - RTFx合計は合計音声÷合計処理時間。ピークRSSは`getrusage`の`ru_maxrss`。
 - 12スレッドは全コアではなく、Super・Performanceコアにまたがる。fp32は4スレッドのほうが速く、再実行でも同じ傾向。原因は未調査。
-- CLIのfp32で33.8分（2,026.5秒）を68分割: 起動・モデル読み込み込み23.30秒（RTFx 87.0）、最大RSS 3.52GB。
+- CLIのfp32で33.8分（2,026.5秒）を68分割: 起動・モデル読み込み込み23.30秒（RTFx 87.0）、最大RSS 3.52GB。スレッド数は既定（ONNX Runtimeの自動設定）。
 - 公表RTFxはH200・バッチ512のため比較不可。x86の速度と精度、4・12以外のスレッド数での速度は未計測。
 
 ## 変換方法
@@ -127,6 +128,8 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 - `--exclude-decoder`で再書き出しした際、fp32の全ファイルとint8のエンコーダはバイト単位で一致。別の量子化設定は未測定。
 
 ## ファイル一覧
+
+合計サイズ: fp32約2.46GB、int8約0.62GB、リポジトリ全体約3.1GB。
 
 サイズはバイト。SHA-256は各版の`SHA256SUMS`から転記。「—」は同ファイルに記載なし。
 
@@ -186,9 +189,9 @@ fp32 casts the original bf16 to float32; int8 uses ONNX Runtime dynamic quantiza
 
 ## Overview and requirements
 
-- For ONNX Runtime CPUs; no NeMo, CUDA or Triton. Install separate inference code: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local).
+- CPU inference with ONNX Runtime; no NeMo, CUDA or Triton. Install separate inference code: [haas-ja-local](https://github.com/basyauma-tech/haas-ja-local).
 - Python >=3.12,<3.13; runtime dependencies: onnxruntime, numpy, sentencepiece, soundfile, soxr. No torch needed.
-- Measured only on the CPU of an Apple Silicon Apple M5 Max (128 GB): 6 Super and 12 Performance cores, macOS 27.2 (26B123), Python 3.12.15, onnxruntime 1.31.1 (`CPUExecutionProvider`, `ORT_ENABLE_ALL`), numpy 2.5.4.
+- Measured only on the CPU of an Apple M5 Max (Apple Silicon) (128 GB): 6 Super and 12 Performance cores, macOS 27.2 (26B123), Python 3.12.15, onnxruntime 1.31.1 (`CPUExecutionProvider`, `ORT_ENABLE_ALL`), numpy 2.5.4.
 - Speed and accuracy on x86_64, Linux and Windows are unmeasured. int8 accuracy may depend on the instruction set.
 
 ## Usage
@@ -208,9 +211,10 @@ from haas_ja_local import load_audio, load_model, transcribe
 backend, tokenizer = load_model("Haas-ja-v1.0-onnx")
 result = transcribe(backend, tokenizer, load_audio("audio.wav"))
 print(result.text)
+backend, tokenizer = load_model("Haas-ja-v1.0-onnx", variant="int8", threads=4)
 ```
 
-CLI (`DIR` is the model directory and `AUDIO` is the audio file; both are filled in below):
+CLI:
 
 ```sh
 haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --backend onnx --variant fp32 --threads 4
@@ -260,7 +264,7 @@ M5 Max CPU setup above, batch 1, sequential recognition. 647 FLEURS utterances, 
 
 - Aggregate RTFx = total audio / total processing time. Peak RSS uses `getrusage`'s `ru_maxrss`.
 - 12 threads span Super and Performance cores, not all cores. fp32 was faster with 4 threads, including on rerun; the cause is uninvestigated.
-- CLI fp32, 33.8 minutes (2,026.5 seconds), 68 pieces: 23.30 seconds including startup/model loading (RTFx 87.0), maximum RSS 3.52 GB.
+- CLI fp32, 33.8 minutes (2,026.5 seconds), 68 pieces: 23.30 seconds including startup/model loading (RTFx 87.0), maximum RSS 3.52 GB; default thread count (ONNX Runtime automatic configuration).
 - Published RTFx uses H200, batch 512; not comparable. x86 speed/accuracy and speed with thread counts other than 4 and 12 are unmeasured.
 
 ## Conversion
@@ -285,6 +289,8 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 - Re-exporting with `--exclude-decoder` gave byte-identical fp32 files and int8 encoder files. Other quantization settings are unmeasured.
 
 ## Files
+
+Total size: fp32 approximately 2.46 GB, int8 approximately 0.62 GB, entire repository approximately 3.1 GB.
 
 Sizes in bytes. SHA-256 values are copied from each variant's `SHA256SUMS`; “—” means not listed there.
 
