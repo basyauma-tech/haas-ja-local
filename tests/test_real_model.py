@@ -40,3 +40,29 @@ def test_real_torch_reproduces_expected_tokens(real_nemo, name):
     model, _ = load_torch_model(real_nemo)
     mel, n = log_mel(load_audio(Path(clips_dir) / name), model.window_np, model.fb_np, model.config)
     assert [t.id for t in greedy_tdt(model, model.encode(mel, n))] == expected
+
+
+@pytest.mark.real_model
+def test_real_mlx_transcribes_fixture_clip(real_model_dir):
+    pytest.importorskip("mlx")
+    from haas_ja_local.pipeline import load_model, transcribe
+
+    backend, tok = load_model(real_model_dir, backend="mlx")
+    text = transcribe(backend, tok, load_audio(CLIP)).text
+    assert text.rstrip("。") == (DATA / "ja_short.txt").read_text(encoding="utf-8").strip()
+
+
+@pytest.mark.real_model
+@pytest.mark.parametrize("name", sorted(json.loads((DATA / "expected_tokens.json").read_text(encoding="utf-8"))))
+def test_real_mlx_bf16_reproduces_expected_tokens(real_model_dir, name):
+    # 既定のbf16エンコーダでも、参照（torch float32）とトークン列が完全に一致する
+    clips_dir = os.environ.get("HAAS_JA_CLIPS_DIR")
+    if not clips_dir:
+        pytest.skip("HAAS_JA_CLIPS_DIR is not set")
+    pytest.importorskip("mlx")
+    from haas_ja_local.mlx_model import HaasMLX
+
+    expected = json.loads((DATA / "expected_tokens.json").read_text(encoding="utf-8"))[name]
+    model = HaasMLX.load(real_model_dir)
+    mel, n = log_mel(load_audio(Path(clips_dir) / name), model.window_np, model.fb_np, model.config)
+    assert [t.id for t in greedy_tdt(model, model.encode(mel, n))] == expected

@@ -15,30 +15,11 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
+from haas_ja_local.architecture import KDA_L2_EPS, KDA_RMS_EPS, LAYER_NORM_EPS, subsampling_stages
 from haas_ja_local.config import HaasConfig
 from haas_ja_local.decode import Backend
 from haas_ja_local.nemo_checkpoint import read_nemo
 from haas_ja_local.tokenizer import Tokenizer
-
-LAYER_NORM_EPS = 1e-5
-KDA_L2_EPS = 1e-6
-KDA_RMS_EPS = 1e-5
-
-
-def _subsampling_stages(config: HaasConfig) -> int:
-    stages = int(math.log2(config.subsampling_factor))
-    if 2**stages != config.subsampling_factor:
-        raise ValueError(f"subsampling_factor must be a power of 2, got {config.subsampling_factor}")
-    return stages
-
-
-def encoded_length(n_frames: int, config: HaasConfig) -> int:
-    """melフレーム数からエンコーダ出力の有効長を求める。stride 2・kernel 3・pad 1の各段でceil(L/2)。"""
-    n = int(n_frames)
-    for _ in range(_subsampling_stages(config)):
-        n = (n + 1) // 2
-    return n
-
 
 # ---------------------------------------------------------------------------
 # エンコーダ（FastConformer）
@@ -52,7 +33,7 @@ class ConvSubsampling(nn.Module):
         ch = config.subsampling_channels
         layers: list[nn.Module] = [nn.Conv2d(1, ch, 3, stride=2, padding=1), nn.ReLU()]
         freq = (config.n_mels + 1) // 2
-        for _ in range(_subsampling_stages(config) - 1):
+        for _ in range(subsampling_stages(config) - 1):
             layers += [
                 nn.Conv2d(ch, ch, 3, stride=2, padding=1, groups=ch),
                 nn.Conv2d(ch, ch, 1),
@@ -217,7 +198,7 @@ class ConformerEncoder(nn.Module):
         """
         lengths = length.to(torch.int64)
         x = self.pre_encode(mel.transpose(1, 2), lengths)
-        for _ in range(_subsampling_stages(self.config)):
+        for _ in range(subsampling_stages(self.config)):
             lengths = torch.div(lengths + 1, 2, rounding_mode="floor")
         x = x[:, : int(lengths.max())]
         x, pos_emb = self.pos_enc(x)

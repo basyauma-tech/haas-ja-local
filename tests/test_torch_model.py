@@ -5,11 +5,12 @@ import pytest
 import torch
 import torch.nn.functional as F
 
+from haas_ja_local.architecture import encoded_length
 from haas_ja_local.config import HaasConfig
 from haas_ja_local.decode import greedy_tdt
 from haas_ja_local.features import log_mel
 from haas_ja_local.nemo_checkpoint import expected_keys
-from haas_ja_local.torch_model import HaasTorch, RelPositionalEncoding, encoded_length, load_torch_model, rel_shift
+from haas_ja_local.torch_model import HaasTorch, RelPositionalEncoding, load_torch_model, rel_shift
 from tests.conftest import make_state_dict
 
 
