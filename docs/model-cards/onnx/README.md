@@ -44,7 +44,7 @@ TODO(Task 12/13): fp32/int8の既定と理由。
 
 ```sh
 pip install "haas-ja-local[onnx] @ git+https://github.com/basyauma-tech/haas-ja-local"
-hf download basyauma-technology/Haas-ja-v1.0-onnx --local-dir Haas-ja-v1.0-onnx
+hf download basyauma-tech/Haas-ja-v1.0-onnx --local-dir Haas-ja-v1.0-onnx
 ```
 
 Python:
@@ -158,7 +158,7 @@ TODO(Task 12/13): fp32/int8 default and rationale.
 
 ```sh
 pip install "haas-ja-local[onnx] @ git+https://github.com/basyauma-tech/haas-ja-local"
-hf download basyauma-technology/Haas-ja-v1.0-onnx --local-dir Haas-ja-v1.0-onnx
+hf download basyauma-tech/Haas-ja-v1.0-onnx --local-dir Haas-ja-v1.0-onnx
 haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --threads 4
 ```
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Haas-ja-v1.0（日本語ASR、FastConformer＋TDT＋KDA）をNeMo・CUDA・Tritonなしで動かすPythonパッケージ`haas_ja_local`を作り、MLX版（Mac）とONNX版（Windowsで後続）の重みをbasyauma-technology名義でHugging Faceに公開する。
+**Goal:** Haas-ja-v1.0（日本語ASR、FastConformer＋TDT＋KDA）をNeMo・CUDA・Tritonなしで動かすPythonパッケージ`haas_ja_local`を作り、MLX版（Mac）とONNX版（Windowsで後続）の重みをbasyauma-tech名義でHugging Faceに公開する。
 
 **Architecture:** 純PyTorchのリファレンス実装が`.nemo`を読み、数値の基準とONNX書き出しの元になる。MLX実装とONNX Runtime実装は同じ`config.json`・同じ前処理（numpy）・同じTDT greedyデコード（純Python）を共有し、バックエンドは「エンコード」「予測ネットワーク1ステップ」「結合」の3操作だけを提供する。重みの名前は元チェックポイントのまま保ち、変換は軸の並べ替えだけにする。
 
@@ -133,7 +133,7 @@ Expected: FAIL（`__version__`がない、またはimportエラー）
 
 - [ ] **Step 4: `src/haas_ja_local/__init__.py`に`__version__`を置き、`.gitignore`（`var/`、`.venv/`、`__pycache__/`、`dist/`、`*.onnx`、`*.safetensors`）、`LICENSE`（Apache-2.0全文）、`NOTICE`を書く**
 
-NOTICEの内容: 本パッケージの著作権（basyauma-technology、2026）、元モデル`third-intelligence/Haas-ja-v1.0`（Third Intelligence, Inc.、Apache-2.0）、参考にした実装（NVIDIA NeMo、third-intelligence/Haas-ASR、matsuurajun/haas-mlx、Sanami/haas-ja-onnxはApache-2.0。fla-org/flash-linear-attentionはMIT）、「非公式・無関係」の一文（日英）。
+NOTICEの内容: 本パッケージの著作権（basyauma-tech、2026）、元モデル`third-intelligence/Haas-ja-v1.0`（Third Intelligence, Inc.、Apache-2.0）、参考にした実装（NVIDIA NeMo、third-intelligence/Haas-ASR、matsuurajun/haas-mlx、Sanami/haas-ja-onnxはApache-2.0。fla-org/flash-linear-attentionはMIT）、「非公式・無関係」の一文（日英）。
 
 - [ ] **Step 5: `README.md`の骨組み（日本語→英語。概要、非公式の明記、インストール、使い方は後のタスクで埋める見出しだけ）と`.github/workflows/ci.yml`を書く**
 
@@ -735,14 +735,14 @@ push後にCIが3 OSで緑になることを確認する。以後の変更はブ�
 - [ ] **Step 4: Hugging Faceへ公開**
 
 ```bash
-hf repos create basyauma-technology/Haas-ja-v1.0-mlx --type model --public
-hf upload basyauma-technology/Haas-ja-v1.0-mlx var/dist/mlx . --commit-message "Add unofficial MLX conversion of third-intelligence/Haas-ja-v1.0"
+hf repos create basyauma-tech/Haas-ja-v1.0-mlx --type model --public
+hf upload basyauma-tech/Haas-ja-v1.0-mlx var/dist/mlx . --commit-message "Add unofficial MLX conversion of third-intelligence/Haas-ja-v1.0"
 ```
-公開ページでfront matterの表示、`base_model`のリンク、元モデルページの一覧への掲載を確認する。`hf download basyauma-technology/Haas-ja-v1.0-mlx --local-dir /tmp/x`→`transcribe`の往復を1回行う。
+公開ページでfront matterの表示、`base_model`のリンク、元モデルページの一覧への掲載を確認する。`hf download basyauma-tech/Haas-ja-v1.0-mlx --local-dir /tmp/x`→`transcribe`の往復を1回行う。
 
 - [ ] **Step 5: READMEに公開先リンクを入れ、`docs/repositories.md`に行を追加し、コミット**
 
-`| haas-ja-local/ | リポジトリ | https://github.com/basyauma-tech/haas-ja-local.git | main（2026-11-XX作成。Haas-ja-v1.0のMLX/ONNX変換と推論。HF: basyauma-technology/Haas-ja-v1.0-mlx） |`
+`| haas-ja-local/ | リポジトリ | https://github.com/basyauma-tech/haas-ja-local.git | main（2026-11-XX作成。Haas-ja-v1.0のMLX/ONNX変換と推論。HF: basyauma-tech/Haas-ja-v1.0-mlx） |`
 
 ```bash
 git commit -am "docs: MLX model card and publication links"
@@ -781,8 +781,8 @@ Run: `uv run --extra convert haas-ja-local convert-onnx --nemo ... --out var/dis
 - [ ] **Step 3: 公開**
 
 ```bash
-hf repos create basyauma-technology/Haas-ja-v1.0-onnx --type model --public
-hf upload basyauma-technology/Haas-ja-v1.0-onnx var/dist/onnx . --commit-message "Add unofficial ONNX (fp32/int8) conversion of third-intelligence/Haas-ja-v1.0"
+hf repos create basyauma-tech/Haas-ja-v1.0-onnx --type model --public
+hf upload basyauma-tech/Haas-ja-v1.0-onnx var/dist/onnx . --commit-message "Add unofficial ONNX (fp32/int8) conversion of third-intelligence/Haas-ja-v1.0"
 ```
 `hf download`→`transcribe`の往復、ページ表示、元モデルページの一覧掲載を確認する。
 
@@ -813,7 +813,7 @@ hf upload basyauma-technology/Haas-ja-v1.0-onnx var/dist/onnx . --commit-message
 ### Task 13'（Mac）: ONNX版の公開
 
 - カード`docs/model-cards/onnx/README.md`のTODOを実測値で埋める（Codex CLIで短く）。x86未計測を明記。
-- 公開バンドル`var/dist/publish/onnx/`（fp32/、int8/、config.json、tokenizer.model、preprocessor.npz、README.md、LICENSE、NOTICE）→ `hf repos create basyauma-technology/Haas-ja-v1.0-onnx --type model --public` → `hf upload`。往復確認（fp32とint8の両方でtranscribe）。READMEと台帳を更新。
+- 公開バンドル`var/dist/publish/onnx/`（fp32/、int8/、config.json、tokenizer.model、preprocessor.npz、README.md、LICENSE、NOTICE）→ `hf repos create basyauma-tech/Haas-ja-v1.0-onnx --type model --public` → `hf upload`。往復確認（fp32とint8の両方でtranscribe）。READMEと台帳を更新。
 
 ### Task 14（Mac）: MLX量子化版（8bit / 4bit）
 
@@ -821,11 +821,11 @@ hf upload basyauma-technology/Haas-ja-v1.0-onnx var/dist/onnx . --commit-message
 - 読み込み: `HaasMLX.load`が`config.json`の`quantization`を見て`nn.quantize`を適用してから`load_weights(strict=True)`。bf16版はこれまでどおり。
 - 検証: tiny/parityモデルで量子化→読み込みの往復と、bf16との出力差がbitsに応じた許容内（8bit: logits相対1e-2程度、4bit: トークン列一致率で評価）。実モデルでFLEURS・JVNVのCERとRTFx、ピークメモリをbf16と同じ手順で計測。
 - 合格基準: 公表値との差0.3ポイント以内の版だけ公開。外れた版は数値を記録し、公開は見送る（カードに「未公開の理由」を一行）。
-- 公開: `basyauma-technology/Haas-ja-v1.0-mlx-8bit`、`-4bit`（合格した版のみ）。カードはbf16版を基にCodex CLIで短く。bf16版カードとREADMEに量子化版へのリンクを追加。
+- 公開: `basyauma-tech/Haas-ja-v1.0-mlx-8bit`、`-4bit`（合格した版のみ）。カードはbf16版を基にCodex CLIで短く。bf16版カードとREADMEに量子化版へのリンクを追加。
 - 検証記録`docs/verification/2026-11-08-mac-mlx-quant.md`。
 
 ### 文書の方針（全タスク共通）
 
-- 公開文書（カード・README）の本文で「basyauma-technology」に言及しない。リポジトリIDとURLは残す。
+- 公開文書（カード・README）の本文で「basyauma-tech」に言及しない。リポジトリIDとURLは残す。
 - 要点だけを短く。日本語→英語。数字・英字と日本語の間に半角スペースを入れない。
 - 文章の執筆・リライトはCodex CLI（`codex exec`）に任せ、事実・数値・免責・ライセンス表記は変えない。

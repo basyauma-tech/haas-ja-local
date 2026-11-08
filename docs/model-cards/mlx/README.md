@@ -39,7 +39,7 @@ tags:
 
 ```sh
 pip install "haas-ja-local[mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"
-hf download basyauma-technology/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
+hf download basyauma-tech/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
 ```
 
 Python:
@@ -187,7 +187,7 @@ The original model uses a FastConformer encoder and a TDT decoder (Kimi Delta At
 
 ```sh
 pip install "haas-ja-local[mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"
-hf download basyauma-technology/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
+hf download basyauma-tech/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
 haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav
 haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 ```

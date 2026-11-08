@@ -8,8 +8,8 @@
 
 | 形式 | Hugging Face | 状態 |
 |---|---|---|
-| MLX（Apple Silicon、bf16） | [basyauma-technology/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-technology/Haas-ja-v1.0-mlx) | 公開中 |
-| ONNX（CPU、fp32・int8） | basyauma-technology/Haas-ja-v1.0-onnx | 準備中 |
+| MLX（Apple Silicon、bf16） | [basyauma-tech/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx) | 公開中 |
+| ONNX（CPU、fp32・int8） | basyauma-tech/Haas-ja-v1.0-onnx | 準備中 |
 
 精度・速度・制限は各モデルカードを参照。MLX版の原稿: [docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md)。
 
@@ -27,7 +27,7 @@ pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-
 ```
 
 ```sh
-hf download basyauma-technology/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
+hf download basyauma-tech/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
 ```
 
 ```python
@@ -87,8 +87,8 @@ Run [Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) local
 
 | Format | Hugging Face | Status |
 |---|---|---|
-| MLX (Apple Silicon, bf16) | [basyauma-technology/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-technology/Haas-ja-v1.0-mlx) | published |
-| ONNX (CPU, fp32 and int8) | basyauma-technology/Haas-ja-v1.0-onnx | planned |
+| MLX (Apple Silicon, bf16) | [basyauma-tech/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx) | published |
+| ONNX (CPU, fp32 and int8) | basyauma-tech/Haas-ja-v1.0-onnx | planned |
 
 Accuracy, speed, limitations: see model cards. MLX card source: [docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md).
 
@@ -100,7 +100,7 @@ Requires Python 3.12.
 pip install "haas-ja-local[mlx] @ git+https://github.com/basyauma-tech/haas-ja-local"
 pip install "haas-ja-local[onnx] @ git+https://github.com/basyauma-tech/haas-ja-local"
 pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-ja-local"
-hf download basyauma-technology/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
+hf download basyauma-tech/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
 haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav
 haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 ```

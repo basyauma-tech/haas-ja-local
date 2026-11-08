@@ -7,7 +7,7 @@
 [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)は日本語音声認識モデル（FastConformerエンコーダ＋TDTデコーダ、予測ネットワークはKimi Delta Attention）で、
 配布物は`Haas-ja-v1.0.nemo`1本、公式の実行環境はLinux＋NVIDIA GPU＋NeMo 2.7に限られる。予測ネットワークがflash-linear-attentionのTritonカーネルに依存し、公式に「CPU and macOS are not supported」と明記されている。
 
-このモデルをNeMo・CUDA・Tritonなしで動かせる形式に変換し、basyauma-technology名義でHugging Faceに公開する。
+このモデルをNeMo・CUDA・Tritonなしで動かせる形式に変換し、basyauma-tech名義でHugging Faceに公開する。
 
 - MLX版: Apple SiliconのMetalで動く。
 - ONNX版: ONNX RuntimeのCPUで動く（Apple Silicon・Linux・Windows）。
@@ -32,7 +32,7 @@
 | `haas_ja_local.cli` | `haas-ja-local transcribe --backend mlx|onnx ...`、`haas-ja-local convert ...` |
 | `scripts/` | 数値検証、ベンチマーク評価、速度計測、モデルカード用の数値出力 |
 
-### 2.2 Hugging Face `basyauma-technology/Haas-ja-v1.0-mlx`
+### 2.2 Hugging Face `basyauma-tech/Haas-ja-v1.0-mlx`
 
 | ファイル | 内容 |
 |---|---|
@@ -42,7 +42,7 @@
 | `README.md` | モデルカード（日本語・英語） |
 | `LICENSE`、`NOTICE` | Apache-2.0と帰属表示 |
 
-### 2.3 Hugging Face `basyauma-technology/Haas-ja-v1.0-onnx`
+### 2.3 Hugging Face `basyauma-tech/Haas-ja-v1.0-onnx`
 
 | ファイル | 内容 |
 |---|---|
@@ -153,7 +153,7 @@ NeMoのRNNT ONNX書き出しと同じ名前にし、既存のツール（sherpa-
 ## 10. 公開手順
 
 1. GitHub: `gh repo create basyauma-tech/haas-ja-local --public`。mainへの直接pushは初回の土台だけとし、以降はPRで入れる。
-2. Hugging Face: `hf repos create basyauma-technology/Haas-ja-v1.0-mlx --type model --public`（onnxも同様）、`hf upload`でファイルを上げる。アップロード前に手元で`hf download`→推論の往復を1度通す。
+2. Hugging Face: `hf repos create basyauma-tech/Haas-ja-v1.0-mlx --type model --public`（onnxも同様）、`hf upload`でファイルを上げる。アップロード前に手元で`hf download`→推論の往復を1度通す。
 3. 公開後にモデルカードの表示（front matter、画像なし）と、元モデルページの一覧に出ることを確認する。
 4. ワークスペースのリポジトリ台帳を更新する。
 
