@@ -50,7 +50,7 @@ haas-ja-local/
     tokenizer.py       Tokenizer（sentencepiece）
     decode.py          TDT greedy（純Python、Backendプロトコル）
     longform.py        無音分割と結合
-    transcribe.py      load_model / transcribe（短い音声と長い音声の振り分け）
+    pipeline.py        load_model / transcribe（短い音声と長い音声の振り分け）。公開関数 transcribe と名前が衝突しないよう transcribe.py から改名
     torch_model.py     純PyTorch実装（Backend）
     mlx_model.py       MLX実装（Backend）
     onnx_model.py      ONNX Runtime実装（Backend）
