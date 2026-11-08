@@ -9,8 +9,8 @@
 | 形式 | Hugging Face | 状態 |
 |---|---|---|
 | MLX（Apple Silicon、bf16） | [basyauma-tech/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx) | 公開中 |
-| MLX（Apple Silicon、線形層8bit量子化） | basyauma-tech/Haas-ja-v1.0-mlx-8bit | 準備中 |
-| ONNX（CPU、fp32・int8） | basyauma-tech/Haas-ja-v1.0-onnx | 準備中 |
+| MLX（Apple Silicon、線形層8bit量子化） | [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit) | 公開中 |
+| ONNX（CPU、fp32・int8） | [basyauma-tech/Haas-ja-v1.0-onnx](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-onnx) | 公開中 |
 
 精度・速度・制限: [MLXモデルカード](docs/model-cards/mlx/README.md)。
 
@@ -92,8 +92,8 @@ Run [Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) local
 | Format | Hugging Face | Status |
 |---|---|---|
 | MLX (Apple Silicon, bf16) | [basyauma-tech/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx) | published |
-| MLX (Apple Silicon, 8-bit linear layers) | basyauma-tech/Haas-ja-v1.0-mlx-8bit | planned |
-| ONNX (CPU, fp32 and int8) | basyauma-tech/Haas-ja-v1.0-onnx | planned |
+| MLX (Apple Silicon, 8-bit linear layers) | [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit) | published |
+| ONNX (CPU, fp32 and int8) | [basyauma-tech/Haas-ja-v1.0-onnx](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-onnx) | published |
 
 Accuracy, speed and limitations: [MLX model card](docs/model-cards/mlx/README.md).
 
