@@ -7,7 +7,7 @@
 [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)は日本語音声認識モデル（FastConformerエンコーダ＋TDTデコーダ、予測ネットワークはKimi Delta Attention）で、
 配布物は`Haas-ja-v1.0.nemo`1本、公式の実行環境はLinux＋NVIDIA GPU＋NeMo 2.7に限られる。予測ネットワークがflash-linear-attentionのTritonカーネルに依存し、公式に「CPU and macOS are not supported」と明記されている。
 
-このモデルをNeMo・CUDA・Tritonなしで動かせる形式に変換し、basyauma-technology名義でHugging Faceに公開する。
+このモデルをNeMo・CUDA・Tritonなしで動かせる形式に変換し、basyauma-tech名義でHugging Faceに公開する。
 
 - MLX版: Apple SiliconのMetalで動く。
 - ONNX版: ONNX RuntimeのCPUで動く（Apple Silicon・Linux・Windows）。
@@ -32,7 +32,7 @@
 | `haas_ja_local.cli` | `haas-ja-local transcribe --backend mlx|onnx ...`、`haas-ja-local convert ...` |
 | `scripts/` | 数値検証、ベンチマーク評価、速度計測、モデルカード用の数値出力 |
 
-### 2.2 Hugging Face `basyauma-technology/Haas-ja-v1.0-mlx`
+### 2.2 Hugging Face `basyauma-tech/Haas-ja-v1.0-mlx`
 
 | ファイル | 内容 |
 |---|---|
@@ -42,7 +42,7 @@
 | `README.md` | モデルカード（日本語・英語） |
 | `LICENSE`、`NOTICE` | Apache-2.0と帰属表示 |
 
-### 2.3 Hugging Face `basyauma-technology/Haas-ja-v1.0-onnx`
+### 2.3 Hugging Face `basyauma-tech/Haas-ja-v1.0-onnx`
 
 | ファイル | 内容 |
 |---|---|
@@ -54,7 +54,7 @@
 
 ### 2.4ワークスペースの台帳
 
-`~/workspace/basyauma/docs/repositories.md`に新リポジトリの行を追加する。
+作業ワークスペースのリポジトリ台帳に、新リポジトリの行を追加する。
 
 ## 3. ゴール・非ゴール・失敗条件
 
@@ -69,7 +69,7 @@
 - ストリーミング認識、ビームサーチ、カスタム語彙、話者分離。
 - CoreML・iOS・Android向け、Linux CUDA向けの最適化。
 - PyPIへの登録（gitインストールで足りる。後で追加できる）。
-- basyauma-minutesへの組み込み（別タスク。同リポジトリの`docs/superpowers/specs/2026-11-08-haas-ja-eval-design.md`が第三者のONNX変換をMac経路の参考値に使う計画なので、本件のONNX版が完成したらそちらへ差し替える候補になる）。
+- 他のアプリケーションへの組み込み（別タスク。第三者のONNX変換をMacでの参考値に使う評価計画が別にあり、本件のONNX版が完成したらその差し替え候補になる）。
 
 失敗条件（動いても失敗とみなす）
 
@@ -153,15 +153,15 @@ NeMoのRNNT ONNX書き出しと同じ名前にし、既存のツール（sherpa-
 ## 10. 公開手順
 
 1. GitHub: `gh repo create basyauma-tech/haas-ja-local --public`。mainへの直接pushは初回の土台だけとし、以降はPRで入れる。
-2. Hugging Face: `hf repos create basyauma-technology/Haas-ja-v1.0-mlx --type model --public`（onnxも同様）、`hf upload`でファイルを上げる。アップロード前に手元で`hf download`→推論の往復を1度通す。
+2. Hugging Face: `hf repos create basyauma-tech/Haas-ja-v1.0-mlx --type model --public`（onnxも同様）、`hf upload`でファイルを上げる。アップロード前に手元で`hf download`→推論の往復を1度通す。
 3. 公開後にモデルカードの表示（front matter、画像なし）と、元モデルページの一覧に出ることを確認する。
-4. `docs/repositories.md`を更新する。
+4. ワークスペースのリポジトリ台帳を更新する。
 
 ## 11. 作業の進め方
 
-- 作業ディレクトリは`~/workspace/basyauma/haas-ja-local`。basyauma-minutesには触れない。
-- 元の`.nemo`、評価データ、変換結果は`~/workspace/basyauma/haas-ja-local/var/`（gitignore）に置く。
-- 第1段（Mac）: 土台（uv、ruff、pytest、CI）→ 前処理とトークナイザ → torch実装と数値一致 → MLX実装と変換 → 長時間分割とCLI → 評価と計測 → MLX版のモデルカード → GitHubとMLX版の公開 → `docs/repositories.md`更新。
+- 作業はこのリポジトリの中で行い、他のリポジトリには触れない。
+- 元の`.nemo`、評価データ、変換結果はリポジトリ直下の`var/`（gitignore）に置く。
+- 第1段（Mac）: 土台（uv、ruff、pytest、CI）→ 前処理とトークナイザ → torch実装と数値一致 → MLX実装と変換 → 長時間分割とCLI → 評価と計測 → MLX版のモデルカード → GitHubとMLX版の公開 → リポジトリ台帳の更新。
 - 第2段（Windows、同じセッションを引き継ぐ）: ONNX書き出し → int8量子化 → x86での数値一致・CER・速度の計測 → ONNX版のモデルカード → 公開。第1段でONNXの書き出しコードの骨組みと乱数重みのテストまではMacで作っておき、Windowsでは実モデルでの実行と検証から始められるようにする。
 - 各段階で先に失敗するテストを書く。
 
@@ -188,3 +188,10 @@ NeMoのRNNT ONNX書き出しと同じ名前にし、既存のツール（sherpa-
 - 長時間分割の具体的な閾値（公式の`transcribe_longform`に近づける）。
 - CLIの引数名と出力JSONの形。
 - CIの構成と、実モデルを使うテストの切り替え方法。
+
+## 14. 改訂（2026-11-08、利用者の決定）
+
+- x86での確認は後回しにし、ONNX版（fp32/int8）の検証・計測・公開もMacで行う。精度はMacで測り、x86の速度とint8の精度は「未計測」と明記して後から追記する。
+- MLXの量子化版（8bit/4bit、線形層のみ、グループサイズ64）を追加する。公表値との差0.3ポイント以内の版だけ別リポジトリ（`Haas-ja-v1.0-mlx-8bit`、`-4bit`）で公開する。
+- 公開文書の本文では組織名に言及せず（リポジトリIDとURLは残す）、要点だけを短く書く。文章の執筆・リライトはCodex CLIに任せる。
+- 詳細は実装計画の末尾「改訂」節を参照。

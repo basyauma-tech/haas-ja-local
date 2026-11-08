@@ -10,8 +10,7 @@ from pathlib import Path
 
 from haas_ja_local.audio import load_audio
 from haas_ja_local.config import HaasConfig
-from haas_ja_local.pipeline import Transcript, load_model, transcribe
-from haas_ja_local.tokenizer import Tokenizer
+from haas_ja_local.pipeline import load_model, token_records, transcribe
 
 PROG = "haas-ja-local"
 
@@ -27,6 +26,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--timestamps", action="store_true", help="include per-token times in --json output")
     p.add_argument("--json", action="store_true", help="print one JSON object per file")
     p.add_argument("--threads", type=int, help="CPU threads for the onnx backend (ignored by other backends)")
+    p.add_argument(
+        "--variant", choices=["fp32", "int8"], help="ONNX model variant (onnx backend only; default fp32 when present)"
+    )
 
     p = commands.add_parser("convert-mlx", help="convert the original .nemo checkpoint to an MLX model directory")
     p.add_argument("--nemo", type=Path, required=True, help="path to Haas-ja-v1.0.nemo")
@@ -40,24 +42,14 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _token_records(transcript: Transcript, tokenizer: Tokenizer, frame_seconds: float) -> list[dict]:
-    records = []
-    for token, offset in zip(transcript.tokens, transcript.offsets, strict=True):
-        start = offset + token.frame * frame_seconds
-        end = start + max(token.duration, 1) * frame_seconds
-        text = tokenizer.pieces([token.id])[0].replace("▁", " ")
-        records.append({"text": text, "start": round(start, 3), "end": round(end, 3)})
-    return records
-
-
 def _run_transcribe(args: argparse.Namespace) -> int:
     for path in args.audio:
         if not path.is_file():
             print(f"{PROG}: error: audio file not found: {path}", file=sys.stderr)
             return 1
     try:
-        backend, tokenizer = load_model(args.model, backend=args.backend, threads=args.threads)
-    except (FileNotFoundError, ImportError) as e:
+        backend, tokenizer = load_model(args.model, backend=args.backend, threads=args.threads, variant=args.variant)
+    except (FileNotFoundError, ImportError, ValueError) as e:
         print(f"{PROG}: error: {e}", file=sys.stderr)
         return 1
 
@@ -67,7 +59,7 @@ def _run_transcribe(args: argparse.Namespace) -> int:
         if args.json:
             record: dict = {"file": str(path), "text": result.text}
             if args.timestamps:
-                record["tokens"] = _token_records(result, tokenizer, config.frame_seconds)
+                record["tokens"] = token_records(result.tokens, result.offsets, tokenizer, config.frame_seconds)
             print(json.dumps(record, ensure_ascii=False))
         elif len(args.audio) > 1:
             print(f"{path}\t{result.text}")

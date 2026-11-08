@@ -86,6 +86,36 @@ def speed_stats(audio_seconds: Sequence[float], processing_seconds: Sequence[flo
     }
 
 
+def peak_memory() -> dict[str, Any]:
+    """このプロセスのピークメモリ（bytes）と、その測り方。
+
+    macOS・Linuxはgetrusageのru_maxrss（macOSはbytes、Linuxはkibibytes）。
+    Windowsにはresourceが無いので、psutilのピークワーキングセット（peak_wset）を使う。
+    """
+    if sys.platform != "win32":
+        import resource  # Unixだけにある
+
+        rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return {
+            "peak_rss_bytes": int(rss if sys.platform == "darwin" else rss * 1024),
+            "peak_rss_source": "resource.getrusage(RUSAGE_SELF).ru_maxrss",
+        }
+    import psutil
+
+    return {
+        "peak_rss_bytes": int(psutil.Process().memory_info().peak_wset),
+        "peak_rss_source": "psutil.Process().memory_info().peak_wset",
+    }
+
+
+def configure_stdio() -> None:
+    """標準出力・標準エラーで書けない文字を\\uXXXXにして書く（Windowsのcp932で落ちないように）。"""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="backslashreplace")
+
+
 def cer_percent(scores: dict[str, float]) -> dict[str, float]:
     """jacer.cerの戻り値（0〜1）を%にする。"""
     return {k: scores[k] * 100.0 for k in METRIC_KEYS}
@@ -141,17 +171,12 @@ def add_model_arguments(parser) -> None:
 
 
 def load_backend(model: Path, backend: str, *, variant: str | None, threads: int | None):
-    """(バックエンド, トークナイザ)を返す。onnxで--variantを指定したときだけHaasONNX.loadを直接呼ぶ。"""
+    """(バックエンド, トークナイザ)を返す。--variantをonnx以外で指定したら終了する。"""
     from haas_ja_local.pipeline import load_model
 
-    if variant is not None:
-        if backend != "onnx":
-            raise SystemExit("--variant is only for --backend onnx")
-        from haas_ja_local.tokenizer import Tokenizer
-
-        onnx_model = importlib.import_module("haas_ja_local.onnx_model")
-        return onnx_model.HaasONNX.load(model, variant=variant, threads=threads), Tokenizer(model / "tokenizer.model")
-    return load_model(model, backend=backend, threads=threads)
+    if variant is not None and backend != "onnx":
+        raise SystemExit("--variant is only for --backend onnx")
+    return load_model(model, backend=backend, threads=threads, variant=variant)
 
 
 def _package_version(name: str) -> str | None:
@@ -163,7 +188,9 @@ def _package_version(name: str) -> str | None:
 
 def _command(args: list[str]) -> str | None:
     try:
-        return subprocess.run(args, capture_output=True, text=True, check=True).stdout.strip()
+        return subprocess.run(
+            args, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True
+        ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return None
 
@@ -176,6 +203,33 @@ def compute_dtype(backend_impl: Any, backend: str) -> str:
     return str(getattr(backend_impl, "variant", "onnx"))
 
 
+def _memory_total_bytes() -> int | None:
+    if sys.platform == "darwin":
+        return int(_command(["sysctl", "-n", "hw.memsize"]) or 0) or None
+    try:
+        import psutil
+    except ImportError:
+        return None
+    return int(psutil.virtual_memory().total)
+
+
+def system_info() -> dict[str, Any]:
+    """機種・CPU・メモリ・OS・Python。sysctlはmacOSでだけ呼ぶ。"""
+    if sys.platform == "darwin":
+        chip = _command(["sysctl", "-n", "machdep.cpu.brand_string"]) or platform.processor()
+        os_name = f"macOS {platform.mac_ver()[0]}"
+    else:
+        chip = platform.processor() or platform.machine()
+        os_name = platform.platform()
+    return {
+        "machine": platform.machine(),
+        "chip": chip,
+        "memory_bytes": _memory_total_bytes(),
+        "os": os_name,
+        "python": platform.python_version(),
+    }
+
+
 def environment(backend_impl: Any, backend: str, model: Path, *, variant: str | None, threads: int | None) -> dict:
     import os
 
@@ -184,15 +238,13 @@ def environment(backend_impl: Any, backend: str, model: Path, *, variant: str | 
     git_head = _command(["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"])
     git_dirty = _command(["git", "-C", str(REPO_ROOT), "status", "--porcelain", "--untracked-files=no"])
     env: dict[str, Any] = {
-        "machine": platform.machine(),
-        "chip": _command(["sysctl", "-n", "machdep.cpu.brand_string"]) or platform.processor(),
-        "memory_bytes": int(_command(["sysctl", "-n", "hw.memsize"]) or 0) or None,
-        "os": f"macOS {platform.mac_ver()[0]}" if sys.platform == "darwin" else platform.platform(),
-        "python": platform.python_version(),
+        **system_info(),
         "haas_ja_local": haas_ja_local.__version__,
         "git_commit": git_head,
         "git_dirty": bool(git_dirty),
-        "versions": {name: _package_version(name) for name in ("mlx", "onnxruntime", "torch", "numpy", "jacer")},
+        "versions": {
+            name: _package_version(name) for name in ("mlx", "onnxruntime", "torch", "numpy", "jacer", "psutil")
+        },
         "model": str(model),
         "source_sha256": getattr(backend_impl.config, "source_sha256", "") or None,
         "backend": backend,
@@ -208,4 +260,4 @@ def environment(backend_impl: Any, backend: str, model: Path, *, variant: str | 
 
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="")

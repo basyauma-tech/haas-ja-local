@@ -108,3 +108,45 @@ def test_is_monotonic():
     assert long_audio.is_monotonic([0.0, 0.0, 1.0, 2.5])
     assert not long_audio.is_monotonic([0.0, 2.0, 1.0])
     assert long_audio.is_monotonic([])
+
+
+def test_token_agreement_summary_counts_tokens_and_text_separately():
+    import token_agreement
+
+    rows = [
+        {"id": "a", "mlx_ids": [1, 2, 3], "torch_ids": [1, 2, 3], "mlx_text": "あい", "torch_text": "あい"},
+        {"id": "b", "mlx_ids": [1, 2], "torch_ids": [1, 4], "mlx_text": "あい", "torch_text": "あう"},
+        # トークン列は違うが文字列は同じ（分かれ方だけが違う）
+        {"id": "c", "mlx_ids": [5, 6], "torch_ids": [7], "mlx_text": "かき", "torch_text": "かき"},
+        {"id": "d", "mlx_ids": [], "torch_ids": [], "mlx_text": "", "torch_text": ""},
+    ]
+    s = token_agreement.summarize(rows)
+    assert s["n_utterances"] == 4
+    assert s["tokens_equal"] == 2
+    assert s["tokens_equal_rate"] == 0.5
+    assert s["text_equal"] == 3
+    assert s["text_equal_rate"] == 0.75
+    assert s["tokens_total_mlx"] == 7
+    assert s["tokens_total_torch"] == 6
+    assert s["mismatched_ids"] == ["b", "c"]
+
+
+def test_token_agreement_first_divergence():
+    import token_agreement
+
+    assert token_agreement.first_divergence([1, 2, 3], [1, 2, 3]) is None
+    assert token_agreement.first_divergence([1, 2, 3], [1, 5, 3]) == 1
+    assert token_agreement.first_divergence([1, 2], [1, 2, 3]) == 2
+
+
+def test_silence_check_signals():
+    import numpy as np
+    import silence_check
+
+    s = silence_check.signals(seed=0)
+    assert list(s) == ["silence", "white_noise_std_0.001", "white_noise_std_0.01", "white_noise_std_0.05"]
+    for name, audio in s.items():
+        assert audio.shape == (160000,) and audio.dtype == np.float32, name
+    assert not s["silence"].any()
+    assert float(np.std(s["white_noise_std_0.01"])) == pytest.approx(0.01, rel=0.01)
+    np.testing.assert_array_equal(s["white_noise_std_0.01"], silence_check.signals(seed=0)["white_noise_std_0.01"])

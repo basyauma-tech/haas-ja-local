@@ -66,3 +66,28 @@ def test_real_mlx_bf16_reproduces_expected_tokens(real_model_dir, name):
     model = HaasMLX.load(real_model_dir)
     mel, n = log_mel(load_audio(Path(clips_dir) / name), model.window_np, model.fb_np, model.config)
     assert [t.id for t in greedy_tdt(model, model.encode(mel, n))] == expected
+
+
+BYTE_FALLBACK_CLIP = "7495385793885143814.flac"  # FLEURS ja_jp test。認識結果の「塵」がバイトフォールバック3つになる
+
+
+@pytest.mark.real_model
+def test_real_mlx_timestamps_merge_byte_fallback(real_model_dir, capsys):
+    # --timestampsの各トークンに"<0xE5>"のようなバイトpieceが出ない。音声はHAAS_JA_CLIPS_DIRに置く
+    # （asr-ja-bench-v1.1のaudio/fleurs/からコピーする）。無ければskip
+    clips_dir = os.environ.get("HAAS_JA_CLIPS_DIR")
+    if not clips_dir:
+        pytest.skip("HAAS_JA_CLIPS_DIR is not set")
+    clip = Path(clips_dir) / BYTE_FALLBACK_CLIP
+    if not clip.is_file():
+        pytest.skip(f"{clip} is missing (copy it from asr-ja-bench-v1.1/audio/fleurs/)")
+    pytest.importorskip("mlx")
+    from haas_ja_local.cli import main
+
+    assert main(["transcribe", str(real_model_dir), str(clip), "--json", "--timestamps"]) == 0
+    record = json.loads(capsys.readouterr().out)
+    texts = [t["text"] for t in record["tokens"]]
+    assert "塵" in texts
+    assert not any(t.startswith("<0x") or t.startswith(" ") or not t for t in texts)
+    assert "".join(texts) == record["text"]
+    assert all(t["start"] < t["end"] for t in record["tokens"])

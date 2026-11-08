@@ -7,10 +7,13 @@ score: `haas-ja-local transcribe --json --timestamps`の出力を読み、次を
     - 分割数（split_at_quiet_pointsを同じ音声に適用）、各断片の境界秒
     - トークン時刻が単調非減少か、最後のトークンの終了秒と音声長
 
+--transcriptはUTF-8（BOM付きも可）かUTF-16（BOM付き。WindowsのPowerShell 5.1の`>`が書く形式）で読む。
+Windowsでは、CLIの出力をUTF-8でファイルへ書くために`PYTHONUTF8=1`を設定してから実行する。
+
 実行例:
     uv run python scripts/long_audio.py make --bench var/bench/asr-ja-bench-v1.1 --subset fleurs --count 150 \
         --out var/bench/long/fleurs_concat_20min.flac
-    /usr/bin/time -l uv run haas-ja-local transcribe var/dist/mlx var/bench/long/fleurs_concat_20min.flac \
+    uv run haas-ja-local transcribe var/dist/mlx var/bench/long/fleurs_concat_20min.flac \
         --json --timestamps > var/bench/long/out.json
     uv run --extra eval python scripts/long_audio.py score --audio var/bench/long/fleurs_concat_20min.flac \
         --transcript var/bench/long/out.json --hyps var/bench/results/mlx-bf16/fleurs/hyps.jsonl \
@@ -23,6 +26,7 @@ import argparse
 import itertools
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +36,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchlib
 
 SAMPLE_RATE = 16000
+
+
+def read_text_any_bom(path: Path) -> str:
+    """UTF-8（BOMの有無を問わない）か、BOM付きUTF-16のテキストを読む。"""
+    data = path.read_bytes()
+    if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return data.decode("utf-16")
+    return data.decode("utf-8-sig")
 
 
 def is_monotonic(starts: list[float]) -> bool:
@@ -81,7 +93,7 @@ def score(args: argparse.Namespace) -> int:
     from haas_ja_local.longform import split_at_quiet_points
 
     meta = json.loads(args.audio.with_suffix(".json").read_text(encoding="utf-8"))
-    record = json.loads(args.transcript.read_text(encoding="utf-8").splitlines()[0])
+    record = json.loads(read_text_any_bom(args.transcript).splitlines()[0])
     if "tokens" not in record:
         raise SystemExit(f"{args.transcript}: no token times; run transcribe with --json --timestamps")
     reference = "".join(p["text"] for p in meta["parts"])
@@ -121,7 +133,8 @@ def score(args: argparse.Namespace) -> int:
     return 0
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
+    benchlib.configure_stdio()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -139,7 +152,7 @@ def main() -> int:
     p.add_argument("--chunk-seconds", type=float, default=30.0)
     p.add_argument("--out", type=Path, required=True, help="output JSON")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     return make(args) if args.command == "make" else score(args)
 
 

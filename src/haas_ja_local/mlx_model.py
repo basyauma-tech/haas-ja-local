@@ -6,6 +6,11 @@ convert/mlx.pyが書いたmodel.safetensorsを`load_weights(strict=True)`でそ�
 
 精度: 既定ではエンコーダの行列積・畳み込みをbf16で行い、LayerNorm・BatchNorm・softmaxはfloat32で計算する。
 予測ネットワーク（KDA）とjointは重みも計算もすべてfloat32。`compute_dtype=mx.float32`で全体をfloat32にできる。
+
+環境変数: このモジュールはimport時に`MLX_ENABLE_TF32`が未設定なら"0"にする（設定済みの値は変えない）。
+Neural Acceleratorを持つGPU（M5など）で、上のfloat32の計算がTF32に落ちないようにするため。
+TF32を使うには、このモジュールより前に`MLX_ENABLE_TF32=1`を設定する。M5 MaxのFLEURS 100発話では、
+TF32のオン・オフでトークン列も速度も変わらなかった（docs/verification/2026-11-08-mac-mlx.md）。
 """
 
 from __future__ import annotations
@@ -105,12 +110,12 @@ class ConvSubsampling(nn.Module):
 
 
 def _time_mask(x: mx.array, length: int) -> mx.array:
-    """x [B,T,F,C]に掛ける時間軸のマスク [1,T,1,1]。"""
+    """x [B,T,F,C]に掛ける時間軸のマスク[1,T,1,1]。"""
     return (mx.arange(x.shape[1]) < length).astype(x.dtype)[None, :, None, None]
 
 
 def rel_positional_encoding(t: int, d_model: int, dtype: mx.Dtype) -> mx.array:
-    """相対位置埋め込み [1,2T-1,d_model]。float32で作ってdtypeへ落とす。"""
+    """相対位置埋め込み[1,2T-1,d_model]。float32で作ってdtypeへ落とす。"""
     pos = np.arange(t - 1, -t, -1, dtype=np.float32)[:, None]
     div = np.exp(np.arange(0, d_model, 2, dtype=np.float32) * np.float32(-(math.log(10000.0) / d_model)))
     pe = np.zeros((2 * t - 1, d_model), dtype=np.float32)
@@ -274,7 +279,7 @@ class KimiDeltaAttention(nn.Module):
     def __call__(
         self, x: mx.array, rec: mx.array, conv: tuple[mx.array, mx.array, mx.array]
     ) -> tuple[mx.array, mx.array, tuple[mx.array, mx.array, mx.array]]:
-        """x [B,P]、rec [B,H,V,K]、conv（q,k,v各 [B,D,W]）→ (y [B,P], rec', conv')。"""
+        """x [B,P]、rec [B,H,V,K]、conv（q,k,v各[B,D,W]）→ (y [B,P], rec', conv')。"""
         b = x.shape[0]
         h, kd = self.n_heads, self.head_dim
         q, q_cache = self._short_conv(self.q_proj(x), self.q_conv1d, conv[0])
@@ -314,10 +319,10 @@ class _KDAStack(nn.Module):
 
 
 class KDAPredictionNetwork(nn.Module):
-    """embed → 各層 x + layer(norms[i](x)) → final_norm。状態は(rec, conv)各 [L,B,kda_state_width]に詰める。
+    """embed → 各層でx + layer(norms[i](x)) → final_norm。状態は(rec, conv)各[L,B,kda_state_width]に詰める。
 
     詰め方はtorch_model.KDAPredictionNetworkと同じ。rec行はS [H,V,K]をその順に平坦化、
-    conv行はq・k・vのキャッシュ [D,W]を順に平坦化して連結し、残りは0。
+    conv行はq・k・vのキャッシュ[D,W]を順に平坦化して連結し、残りは0。
     """
 
     def __init__(self, config: HaasConfig) -> None:
@@ -368,7 +373,7 @@ class _Decoder(nn.Module):
 
 
 # ---------------------------------------------------------------------------
-# Joint と全体
+# Jointと全体
 
 
 class Joint(nn.Module):

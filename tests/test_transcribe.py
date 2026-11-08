@@ -64,8 +64,19 @@ def test_load_model_missing_backend_message(tmp_path, monkeypatch, layout, modul
     else:
         (tmp_path / layout).mkdir()
     monkeypatch.setitem(sys.modules, module, None)  # importをImportErrorにする
+    monkeypatch.setattr(sys, "platform", "darwin")  # mlxの案内はmacOSでだけpip install
     with pytest.raises(ImportError, match=rf"pip install 'haas-ja-local\[{extra}\]'"):
         load_model(tmp_path)
+
+
+@pytest.mark.parametrize("platform", ["linux", "win32"])
+def test_load_model_mlx_off_macos_says_it_needs_apple_silicon(tmp_path, monkeypatch, platform):
+    (tmp_path / "model.safetensors").write_bytes(b"")
+    monkeypatch.setitem(sys.modules, "mlx", None)
+    monkeypatch.setattr(sys, "platform", platform)
+    with pytest.raises(ImportError, match="macOS on Apple Silicon") as exc:
+        load_model(tmp_path)
+    assert "pip install" not in str(exc.value)  # [mlx]のextraはmacOS以外では何も入れない
 
 
 def test_load_model_missing_torch_message(tiny_nemo, monkeypatch):
@@ -85,6 +96,13 @@ def test_load_model_explicit_backend_overrides_detection(tiny_nemo, monkeypatch)
 def test_load_model_rejects_unknown_backend(tiny_nemo):
     with pytest.raises(ValueError, match="backend"):
         load_model(tiny_nemo, backend="tensorflow")
+
+
+def test_load_model_rejects_variant_for_other_backends(tiny_nemo):
+    with pytest.raises(ValueError, match="variant"):
+        load_model(tiny_nemo, variant="fp32")
+    with pytest.raises(ValueError, match="variant"):
+        load_model(tiny_nemo, backend="torch", variant="int8")
 
 
 def test_transcribe_too_short_returns_empty(tiny):

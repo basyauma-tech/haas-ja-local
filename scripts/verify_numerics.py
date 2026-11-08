@@ -1,11 +1,11 @@
 """自前のtorch実装と、同じチェックポイントのfp32 ONNX書き出しを数値で突き合わせる。
 
 各clipについて次を測る。
-(a) 自前log_melと参照haas_ort.logmelの差（有効フレームのmax abs）
-(b) 同じ自前melを入れたときのエンコーダ出力の相対誤差 max|a-b| / max|b|
-(c) 参照greedyがたどった各ステップ（同じエンコーダ出力・トークン・状態）でのjoint logitsの相対誤差
-(d) 自前greedy（自前torch）と参照greedy（参照ONNX）のトークン列の一致
-(e) 双方の書き起こしと正解文
+(a)自前log_melと参照haas_ort.logmelの差（有効フレームのmax abs）
+(b)同じ自前melを入れたときのエンコーダ出力の相対誤差max|a-b| / max|b|
+(c)参照greedyがたどった各ステップ（同じエンコーダ出力・トークン・状態）でのjoint logitsの相対誤差
+(d)自前greedy（自前torch）と参照greedy（参照ONNX）のトークン列の一致
+(e)双方の書き起こしと正解文
 
 実行例:
     uv run --extra convert --extra onnx --with librosa python scripts/verify_numerics.py \
@@ -113,7 +113,7 @@ def compare_clip(model, tok, ref: ModuleType, enc_sess: Any, dec_sess: Any, wav:
     result["window_max_abs"] = float(np.max(np.abs(model.window_np - ref_window)))
     result["fb_max_abs"] = float(np.max(np.abs(model.fb_np - ref._FB)))
 
-    # (b) エンコーダ。どちらにも自前のmelを入れる
+    # (b)エンコーダ。どちらにも自前のmelを入れる
     ours_enc = model.encode(mel, n).numpy()  # [T',1024]
     ref_enc, ref_len = run_reference_encoder(enc_sess, mel, n)
     ref_enc_t = ref_enc[0, :, :ref_len].T  # [T',1024]
@@ -132,7 +132,7 @@ def compare_clip(model, tok, ref: ModuleType, enc_sess: Any, dec_sess: Any, wav:
         {"frame": int(i), "rel": float(per_frame[i])} for i in np.argsort(per_frame)[::-1][:5]
     ]
 
-    # (c) 参照greedyの経路でjoint logitsを比べる。参照のエンコーダ出力（自前mel）を両方へ入れ、
+    # (c)参照greedyの経路でjoint logitsを比べる。参照のエンコーダ出力（自前mel）を両方へ入れ、
     # 各ステップの入力状態は参照のものを使う
     recorder = RecordingDecoder(dec_sess)
     ref_tokens_ourmel = ref.greedy_tdt(recorder, ref_enc[:, :, :ref_len], ref_len)
@@ -154,7 +154,7 @@ def compare_clip(model, tok, ref: ModuleType, enc_sess: Any, dec_sess: Any, wav:
     result["state_rel"] = float(max(state_rel))
     result["joint_worst_step"] = int(step_rel_np.argmax())
 
-    # (d)(e) 自前: 自前mel → 自前torch → 自前greedy。参照: 参照logmel → 参照ONNX → 参照greedy
+    # (d)(e)自前: 自前mel → 自前torch → 自前greedy。参照: 参照logmel → 参照ONNX → 参照greedy
     ours_tokens = [t.id for t in greedy_tdt(model, model.encode(mel, n))]
     ref_enc_full, ref_len_full = run_reference_encoder(enc_sess, ref_mel, int(ref_n))
     ref_tokens = ref.greedy_tdt(dec_sess, ref_enc_full[:, :, :ref_len_full], ref_len_full)
@@ -196,6 +196,9 @@ def markdown_table(results: list[dict[str, Any]]) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")  # Windowsのcp932で書けない文字でも落ちない
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--nemo", type=Path, required=True)
     parser.add_argument("--reference-dir", type=Path, required=True, help="haas_ort.pyとfp32/を含むディレクトリ")
@@ -251,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
         "clips": results,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8", newline="")
 
     print(markdown_table(results))
     print()

@@ -153,7 +153,7 @@ def test_rel_position_attention_matches_explicit_indexing(tiny_config):
 
 
 def _naive_kda_sequence(layer, x: torch.Tensor, n_heads: int, head_dim: int, conv_size: int):
-    """fla の fused_recurrent_kda をそのまま書いた素朴実装。状態は [B,H,K,V]（k行・v列）。"""
+    """flaのfused_recurrent_kdaをそのまま書いた素朴実装。状態は[B,H,K,V]（k行・v列）。"""
     b, u, _ = x.shape
     d = n_heads * head_dim
 
@@ -205,7 +205,7 @@ def test_kda_step_sequence_matches_batched_naive(tiny_config):
             assert y.shape == (b, 1, c.pred_hidden)
             ys.append(y)
     torch.testing.assert_close(torch.cat(ys, dim=1), expected, rtol=1e-5, atol=1e-5)
-    # モデルの状態は [B,H,V,K]、素朴実装は [B,H,K,V]
+    # モデルの状態は[B,H,V,K]、素朴実装は[B,H,K,V]
     torch.testing.assert_close(rec, expected_state.transpose(-1, -2), rtol=1e-5, atol=1e-5)
 
 
@@ -225,7 +225,7 @@ def test_joint_formula(tiny_config):
 
 
 def test_prediction_network_matches_layerwise_reference(tiny_config):
-    # 予測ネットワーク: embed → 各層 x + layer(norms[i](x)) → final_norm。状態の詰め方も確かめる
+    # 予測ネットワーク: embed → 各層でx + layer(norms[i](x)) → final_norm。状態の詰め方も確かめる
     c = tiny_config
     model = _model_from_random(c, seed=7)
     pred = model.decoder.prediction

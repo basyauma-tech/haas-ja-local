@@ -2,8 +2,9 @@
 
 モデル読み込み後、先頭--warmup発話（既定3）を計測から除き、残りの発話について
 1発話ごとのRTFx（音声長÷処理時間）の中央値・平均と、合計のRTFx（合計音声長÷合計処理時間）を出す。
-処理時間は音声読み込みを除いたtranscribeだけの時間。メモリはプロセスのピークRSS（getrusageのru_maxrss。
-macOSはbytes、Linuxはkibibytes）と、mlxではmx.get_peak_memory()（Metalの割り当てのピーク）。
+処理時間は音声読み込みを除いたtranscribeだけの時間。メモリはプロセスのピークRSS（`peak_rss_bytes`、bytes）と、
+mlxではmx.get_peak_memory()（Metalの割り当てのピーク）。ピークRSSはmacOS・Linuxではgetrusageのru_maxrss、
+Windowsではpsutilのpeak_wset（ピークワーキングセット）で測り、どちらを使ったかを`peak_rss_source`に書く。
 
 実行例:
     uv run --extra mlx python scripts/bench_speed.py --model var/dist/mlx --backend mlx \
@@ -14,9 +15,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import resource
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -24,12 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchlib
 
 
-def max_rss_bytes() -> int:
-    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return int(rss if sys.platform == "darwin" else rss * 1024)
-
-
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
+    benchlib.configure_stdio()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     benchlib.add_model_arguments(parser)
     parser.add_argument("--bench", type=Path, required=True, help="rebuilt asr-ja-bench directory")
@@ -37,7 +34,7 @@ def main() -> int:
     parser.add_argument("--limit", type=int, help="only the first N utterances (warm-up included)")
     parser.add_argument("--warmup", type=int, default=3, help="leading utterances excluded from timing (default 3)")
     parser.add_argument("--out", type=Path, required=True, help="output JSON file")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     from haas_ja_local.audio import load_audio
     from haas_ja_local.pipeline import transcribe
@@ -46,7 +43,7 @@ def main() -> int:
     start = time.perf_counter()
     backend, tokenizer = benchlib.load_backend(args.model, args.backend, variant=args.variant, threads=args.threads)
     load_seconds = time.perf_counter() - start
-    rss_after_load = max_rss_bytes()
+    memory_after_load = benchlib.peak_memory()
 
     mx = None
     if args.backend == "mlx":
@@ -70,8 +67,8 @@ def main() -> int:
         "subset": args.subset,
         "model_load_seconds": load_seconds,
         **benchlib.speed_stats(audio_seconds, processing_seconds, warmup=args.warmup),
-        "max_rss_bytes": max_rss_bytes(),
-        "max_rss_bytes_after_load": rss_after_load,
+        **benchlib.peak_memory(),
+        "peak_rss_bytes_after_load": memory_after_load["peak_rss_bytes"],
         "conditions": "batch 1, one utterance at a time, warm-up excluded, audio loading excluded",
         "per_utterance": [
             {"id": u.id, "audio_seconds": a, "processing_seconds": p}
