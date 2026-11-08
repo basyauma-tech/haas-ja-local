@@ -78,7 +78,7 @@ print(result.text)
 haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --threads 4
 ```
 
-`int8/`があればint8を、無ければfp32を使います。fp32を使うには`fp32/`だけをダウンロードするか、`HaasONNX.load(path, variant="fp32")`で読みます。TODO(Task 12/13): この説明を確かめる。
+`fp32/`があればfp32を、無ければint8を使います。int8を使うには`--variant int8`を付けるか、`HaasONNX.load(path, variant="int8")`で読みます。TODO(Task 12/13): int8のCERを測ったうえで既定を見直す。
 
 長時間音声とタイムスタンプの扱いはMLX版と同じです（30秒を超える音声は約30秒ごとに分けて認識し、`--json --timestamps`でトークンごとの時刻を出します）。
 
@@ -217,7 +217,7 @@ Command line (`--threads` sets the number of ONNX Runtime threads):
 haas-ja-local transcribe Haas-ja-v1.0-onnx audio.wav --threads 4
 ```
 
-int8 is used when `int8/` exists, otherwise fp32. To use fp32, download only `fp32/` or load it with `HaasONNX.load(path, variant="fp32")`. TODO(Task 12/13): confirm this description.
+fp32 is used when `fp32/` exists, otherwise int8. To use int8, pass `--variant int8` or load it with `HaasONNX.load(path, variant="int8")`. TODO(Task 12/13): revisit the default once int8 CER is measured.
 
 Long audio and timestamps work as in the MLX version (audio longer than 30 seconds is split into pieces of about 30 seconds, and `--json --timestamps` prints per-token times).
 

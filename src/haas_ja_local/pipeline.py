@@ -59,12 +59,18 @@ def _import_backend(name: str):
 
 
 def load_model(
-    model_dir_or_nemo: str | Path, *, backend: BackendName | None = None, threads: int | None = None
+    model_dir_or_nemo: str | Path,
+    *,
+    backend: BackendName | None = None,
+    threads: int | None = None,
+    variant: str | None = None,
 ) -> tuple[Backend, Tokenizer]:
     """モデルを読み、(バックエンド, トークナイザ)を返す。
 
     backendを省略すると、.nemoならtorch、model.safetensorsを含むディレクトリならmlx、
     fp32/かint8/を含むディレクトリならonnxを選ぶ。threadsはonnxでだけ使い、他では無視する。
+    variant（"fp32"か"int8"）はonnxでだけ指定でき、他のバックエンドで指定するとValueError。
+    省略するとfp32/があればfp32を使う。
     """
     path = Path(model_dir_or_nemo)
     if backend is None:
@@ -74,12 +80,15 @@ def load_model(
     elif not path.exists():
         raise FileNotFoundError(f"model not found: {path}")
 
+    if variant is not None and backend != "onnx":
+        raise ValueError(f"variant {variant!r} is only for the onnx backend (this model uses {backend})")
+
     impl = _import_backend(backend)
     if backend == "torch":
         return impl.load_torch_model(path)
     if backend == "mlx":
         return impl.HaasMLX.load(path), Tokenizer(path / "tokenizer.model")
-    return impl.HaasONNX.load(path, threads=threads), Tokenizer(path / "tokenizer.model")
+    return impl.HaasONNX.load(path, variant=variant, threads=threads), Tokenizer(path / "tokenizer.model")
 
 
 def _decode_chunk(backend: Backend, audio: np.ndarray) -> list[TimedToken]:

@@ -60,8 +60,10 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 ```sh
 hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
 haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-mlx
-haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx --int8
+haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx
 ```
+
+`convert-onnx`に`--int8`を付けると、ONNX Runtimeの動的量子化で作ったint8版も`int8/`に書き出します。int8版の精度はまだ検証中です。ONNX版は`fp32/`があればfp32を使い、`transcribe`の`--variant int8`でint8に切り替えられます。
 
 Hugging FaceのMLX版は、SHA-256が`c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`の`.nemo`から変換しました。
 
@@ -151,8 +153,10 @@ Download the original `.nemo` and convert it to the MLX or ONNX version.
 ```sh
 hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
 haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-mlx
-haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx --int8
+haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx
 ```
+
+Adding `--int8` to `convert-onnx` also writes an int8 variant to `int8/`, made with ONNX Runtime dynamic quantization. Its accuracy is still being verified. The ONNX backend uses fp32 whenever `fp32/` exists; pass `--variant int8` to `transcribe` to use int8 instead.
 
 The MLX version on Hugging Face is converted from the `.nemo` with SHA-256
 `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`.

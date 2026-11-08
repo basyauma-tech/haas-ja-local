@@ -26,6 +26,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--timestamps", action="store_true", help="include per-token times in --json output")
     p.add_argument("--json", action="store_true", help="print one JSON object per file")
     p.add_argument("--threads", type=int, help="CPU threads for the onnx backend (ignored by other backends)")
+    p.add_argument(
+        "--variant", choices=["fp32", "int8"], help="ONNX model variant (onnx backend only; default fp32 when present)"
+    )
 
     p = commands.add_parser("convert-mlx", help="convert the original .nemo checkpoint to an MLX model directory")
     p.add_argument("--nemo", type=Path, required=True, help="path to Haas-ja-v1.0.nemo")
@@ -45,8 +48,8 @@ def _run_transcribe(args: argparse.Namespace) -> int:
             print(f"{PROG}: error: audio file not found: {path}", file=sys.stderr)
             return 1
     try:
-        backend, tokenizer = load_model(args.model, backend=args.backend, threads=args.threads)
-    except (FileNotFoundError, ImportError) as e:
+        backend, tokenizer = load_model(args.model, backend=args.backend, threads=args.threads, variant=args.variant)
+    except (FileNotFoundError, ImportError, ValueError) as e:
         print(f"{PROG}: error: {e}", file=sys.stderr)
         return 1
 

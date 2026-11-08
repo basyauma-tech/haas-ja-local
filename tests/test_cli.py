@@ -86,3 +86,31 @@ def test_bad_arguments_exit_2(capsys):
     with pytest.raises(SystemExit) as exc:
         main(["transcribe", "model.nemo", "a.wav", "--backend", "tensorflow"])
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize(
+    ("argv", "variant"), [([], None), (["--variant", "int8"], "int8"), (["--variant", "fp32"], "fp32")]
+)
+def test_variant_flag_is_forwarded_to_load_model(tiny_nemo, wav, monkeypatch, argv, variant):
+    seen = {}
+
+    def fake_load_model(path, **kwargs):
+        seen.update(kwargs)
+        raise FileNotFoundError("stop here")
+
+    monkeypatch.setattr("haas_ja_local.cli.load_model", fake_load_model)
+    assert main(["transcribe", str(tiny_nemo), str(wav), *argv]) == 1
+    assert seen["variant"] == variant
+
+
+def test_variant_with_wrong_backend_exits_1_with_message(tiny_nemo, wav, capsys):
+    assert main(["transcribe", str(tiny_nemo), str(wav), "--variant", "int8"]) == 1
+    err = capsys.readouterr().err
+    assert "variant" in err
+    assert len(err.strip().splitlines()) == 1
+
+
+def test_bad_variant_exits_2():
+    with pytest.raises(SystemExit) as exc:
+        main(["transcribe", "model", "a.wav", "--variant", "fp16"])
+    assert exc.value.code == 2

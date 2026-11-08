@@ -157,17 +157,12 @@ def add_model_arguments(parser) -> None:
 
 
 def load_backend(model: Path, backend: str, *, variant: str | None, threads: int | None):
-    """(バックエンド, トークナイザ)を返す。onnxで--variantを指定したときだけHaasONNX.loadを直接呼ぶ。"""
+    """(バックエンド, トークナイザ)を返す。--variantをonnx以外で指定したら終了する。"""
     from haas_ja_local.pipeline import load_model
 
-    if variant is not None:
-        if backend != "onnx":
-            raise SystemExit("--variant is only for --backend onnx")
-        from haas_ja_local.tokenizer import Tokenizer
-
-        onnx_model = importlib.import_module("haas_ja_local.onnx_model")
-        return onnx_model.HaasONNX.load(model, variant=variant, threads=threads), Tokenizer(model / "tokenizer.model")
-    return load_model(model, backend=backend, threads=threads)
+    if variant is not None and backend != "onnx":
+        raise SystemExit("--variant is only for --backend onnx")
+    return load_model(model, backend=backend, threads=threads, variant=variant)
 
 
 def _package_version(name: str) -> str | None:

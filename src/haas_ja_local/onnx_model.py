@@ -58,12 +58,12 @@ class HaasONNX(Backend):
     def load(cls, model_dir: Path, *, variant: str | None = None, threads: int | None = None) -> HaasONNX:
         """model_dir（config.json・preprocessor.npzとfp32/かint8/を含む）を読む。
 
-        variant: "fp32"か"int8"。Noneならint8/があればint8、無ければfp32。
+        variant: "fp32"か"int8"。Noneならfp32/があればfp32、無ければint8（int8のCERはまだ測っていない）。
         threads: ONNX Runtimeのintra-opスレッド数。Noneなら既定（物理コア数）。
         """
         model_dir = Path(model_dir)
         if variant is None:
-            variant = "int8" if (model_dir / "int8").is_dir() else "fp32"
+            variant = "int8" if (model_dir / "int8").is_dir() and not (model_dir / "fp32").is_dir() else "fp32"
         elif variant not in VARIANTS:
             raise ValueError(f"unknown variant {variant!r}; choose from {list(VARIANTS)}")
         sub = model_dir / variant

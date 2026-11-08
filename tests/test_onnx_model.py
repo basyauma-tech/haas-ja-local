@@ -46,13 +46,23 @@ def test_load_selects_variant(parity_onnx_dir, tmp_path):
     shutil.copytree(parity_onnx_dir, bundle)
     assert HaasONNX.load(bundle).variant == "fp32"
     _fake_int8(bundle)
-    assert HaasONNX.load(bundle).variant == "int8"  # int8/があれば既定はint8
-    assert HaasONNX.load(bundle, variant="fp32").variant == "fp32"
+    assert HaasONNX.load(bundle).variant == "fp32"  # 両方あれば既定はfp32（int8のCERは未計測）
+    assert HaasONNX.load(bundle, variant="int8").variant == "int8"
     with pytest.raises(ValueError, match="variant"):
         HaasONNX.load(bundle, variant="fp16")
     shutil.rmtree(bundle / "fp32")
+    assert HaasONNX.load(bundle).variant == "int8"  # fp32/が無ければint8
     with pytest.raises(FileNotFoundError, match="fp32"):
         HaasONNX.load(bundle, variant="fp32")
+
+
+def test_load_model_forwards_variant(parity_onnx_dir, tmp_path):
+    bundle = tmp_path / "bundle"
+    shutil.copytree(parity_onnx_dir, bundle)
+    _fake_int8(bundle)
+    assert load_model(bundle)[0].variant == "fp32"
+    assert load_model(bundle, variant="int8")[0].variant == "int8"
+    assert load_model(bundle, backend="onnx", variant="fp32")[0].variant == "fp32"
 
 
 def test_load_without_model_files(tmp_path):

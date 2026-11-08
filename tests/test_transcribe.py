@@ -87,6 +87,13 @@ def test_load_model_rejects_unknown_backend(tiny_nemo):
         load_model(tiny_nemo, backend="tensorflow")
 
 
+def test_load_model_rejects_variant_for_other_backends(tiny_nemo):
+    with pytest.raises(ValueError, match="variant"):
+        load_model(tiny_nemo, variant="fp32")
+    with pytest.raises(ValueError, match="variant"):
+        load_model(tiny_nemo, backend="torch", variant="int8")
+
+
 def test_transcribe_too_short_returns_empty(tiny):
     backend, tokenizer = tiny
     result = transcribe(backend, tokenizer, np.zeros(100, np.float32))
