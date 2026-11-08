@@ -4,11 +4,12 @@
 
 **非公式の変換・推論パッケージです。** Third Intelligence, Inc.とは提携・承認・後援の関係にありません。
 
-[Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)をNeMo・CUDA・Tritonなしでローカル実行します。MLX重みは元のbf16の値を保持し、軸の並べ替えと推論に不要な値の除去のみ。Hugging Face上の分類はquantizedですが、MLX版は量子化していません。
+[Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)をNeMo・CUDA・Tritonなしでローカル実行します。MLX重みは元のbf16の値を保持し、軸の並べ替えと推論に不要な値の除去のみ。Hugging Face上の分類はquantizedですが、bf16のMLX版は量子化していません。
 
 | 形式 | Hugging Face | 状態 |
 |---|---|---|
 | MLX（Apple Silicon、bf16） | [basyauma-tech/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx) | 公開中 |
+| MLX（Apple Silicon、線形層8bit量子化） | basyauma-tech/Haas-ja-v1.0-mlx-8bit | 準備中 |
 | ONNX（CPU、fp32・int8） | basyauma-tech/Haas-ja-v1.0-onnx | 準備中 |
 
 精度・速度・制限は各モデルカードを参照。MLX版の原稿: [docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md)。
@@ -62,6 +63,8 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx
 ```
 
+`convert-mlx --quantize 8`は線形層を8bitに量子化した版を出力（mlxが必要なためmacOSのみ）。
+
 `convert-onnx --int8`は動的量子化版を`int8/`にも出力（精度検証中）。`fp32/`があればfp32を使用。`transcribe --variant int8`で切り替えます。
 
 公開MLX版の元`.nemo`のSHA-256: `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`。
@@ -70,6 +73,7 @@ haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-
 
 - [数値検証](docs/verification/2026-11-08-mac-numerics.md): 純PyTorchと第三者float32 ONNX。
 - [MLX検証](docs/verification/2026-11-08-mac-mlx.md): asr-ja-bench v1.1のFLEURS・JVNVのCER、速度・メモリ・長時間音声。
+- [MLX量子化版の検証](docs/verification/2026-11-08-mac-mlx-quant.md): 8bit・4bitのCER、速度・メモリ。
 
 ## ライセンス
 
@@ -83,11 +87,12 @@ Apache-2.0（[LICENSE](LICENSE)、[NOTICE](NOTICE)）。元モデル: Third Inte
 
 **This is an unofficial conversion/inference package.** It is not affiliated with, endorsed by, or sponsored by Third Intelligence, Inc.
 
-Run [Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) locally without NeMo, CUDA or Triton. MLX preserves original bf16 values, only rearranging axes and removing unused values. Hugging Face classifies it as quantized, but MLX is not quantized.
+Run [Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) locally without NeMo, CUDA or Triton. MLX preserves original bf16 values, only rearranging axes and removing unused values. Hugging Face classifies it as quantized, but the bf16 MLX version is not quantized.
 
 | Format | Hugging Face | Status |
 |---|---|---|
 | MLX (Apple Silicon, bf16) | [basyauma-tech/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx) | published |
+| MLX (Apple Silicon, 8-bit linear layers) | basyauma-tech/Haas-ja-v1.0-mlx-8bit | planned |
 | ONNX (CPU, fp32 and int8) | basyauma-tech/Haas-ja-v1.0-onnx | planned |
 
 Accuracy, speed, limitations: see model cards. MLX card source: [docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md).
@@ -133,6 +138,8 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx
 ```
 
+`convert-mlx --quantize 8` writes a version with 8-bit linear layers (needs mlx, so macOS only).
+
 `convert-onnx --int8` also exports dynamic-quantized weights to `int8/` (accuracy under verification). Uses fp32 if `fp32/` exists; select int8 with `transcribe --variant int8`.
 
 Published MLX source `.nemo` SHA-256: `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`.
@@ -141,6 +148,7 @@ Published MLX source `.nemo` SHA-256: `c6ed38698300a371a86eadab4b56d5458f47623f7
 
 - [Numerical checks](docs/verification/2026-11-08-mac-numerics.md): pure PyTorch versus third-party float32 ONNX.
 - [MLX checks](docs/verification/2026-11-08-mac-mlx.md): asr-ja-bench v1.1 FLEURS/JVNV CER, speed, memory, long audio.
+- [MLX quantized checks](docs/verification/2026-11-08-mac-mlx-quant.md): 8-bit and 4-bit CER, speed, memory.
 
 Records are in Japanese.
 

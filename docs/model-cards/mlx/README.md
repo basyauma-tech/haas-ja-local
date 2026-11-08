@@ -25,6 +25,8 @@ tags:
 
 重みは元のbf16の値を保持し、軸の並べ替えと推論に不要な`num_batches_tracked`の除去だけを行います。Hugging Face上の分類はquantizedですが、量子化していません。
 
+線形層を8bitに量子化した版（約0.73GB）: [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
+
 ## 概要・環境
 
 元モデルはFastConformerエンコーダとTDTデコーダ（予測ネットワークはKimi Delta Attention）で、公式の実行環境はLinuxとNVIDIA GPU（NeMo 2.7）に限られます。
@@ -172,6 +174,8 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 **This is an unofficial conversion** of [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) to MLX. It is not affiliated with, endorsed by, or sponsored by Third Intelligence, Inc.
 
 Original bf16 values are preserved; only tensor axes are rearranged and unused `num_batches_tracked` values removed. Hugging Face classifies it as quantized, but no quantization is applied.
+
+Version with 8-bit linear layers (about 0.73 GB): [basyauma-tech/Haas-ja-v1.0-mlx-8bit](https://huggingface.co/basyauma-tech/Haas-ja-v1.0-mlx-8bit)
 
 ## Overview and requirements
 
