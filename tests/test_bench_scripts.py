@@ -108,3 +108,40 @@ def test_is_monotonic():
     assert long_audio.is_monotonic([0.0, 0.0, 1.0, 2.5])
     assert not long_audio.is_monotonic([0.0, 2.0, 1.0])
     assert long_audio.is_monotonic([])
+
+
+@pytest.mark.parametrize("name", ["bench_speed", "eval_bench"])
+def test_bench_entry_scripts_import_without_resource(monkeypatch, name):
+    # Windowsにはresourceが無い。import時に読まないこと（このテストはどのOSのCIでもimportを通す）
+    import importlib
+
+    monkeypatch.setitem(sys.modules, "resource", None)
+    monkeypatch.delitem(sys.modules, name, raising=False)
+    assert callable(importlib.import_module(name).main)
+
+
+def test_peak_rss_bytes_of_this_process():
+    rss = benchlib.peak_rss_bytes()
+    assert isinstance(rss, int)
+    assert 10 * 2**20 < rss < 1 << 40  # Pythonとnumpyを読んだプロセスは10MiBより大きい
+
+
+@pytest.mark.parametrize(("platform", "factor"), [("darwin", 1), ("linux", 1024)])
+def test_peak_rss_bytes_units_on_unix(monkeypatch, platform, factor):
+    import types
+
+    fake = types.SimpleNamespace(RUSAGE_SELF=0, getrusage=lambda who: types.SimpleNamespace(ru_maxrss=1000))
+    monkeypatch.setitem(sys.modules, "resource", fake)
+    monkeypatch.setattr(sys, "platform", platform)
+    assert benchlib.peak_rss_bytes() == 1000 * factor
+
+
+def test_peak_rss_bytes_on_windows_uses_psutil_peak_working_set(monkeypatch):
+    import types
+
+    info = types.SimpleNamespace(peak_wset=12345)
+    fake = types.SimpleNamespace(Process=lambda: types.SimpleNamespace(memory_info=lambda: info))
+    monkeypatch.setitem(sys.modules, "psutil", fake)
+    monkeypatch.setitem(sys.modules, "resource", None)  # Windowsにはresourceが無い
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert benchlib.peak_rss_bytes() == 12345

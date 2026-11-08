@@ -2,8 +2,9 @@
 
 モデル読み込み後、先頭--warmup発話（既定3）を計測から除き、残りの発話について
 1発話ごとのRTFx（音声長÷処理時間）の中央値・平均と、合計のRTFx（合計音声長÷合計処理時間）を出す。
-処理時間は音声読み込みを除いたtranscribeだけの時間。メモリはプロセスのピークRSS（getrusageのru_maxrss。
-macOSはbytes、Linuxはkibibytes）と、mlxではmx.get_peak_memory()（Metalの割り当てのピーク）。
+処理時間は音声読み込みを除いたtranscribeだけの時間。メモリはプロセスのピークRSS（bytes。macOS・Linuxは
+getrusageのru_maxrss、Windowsはpsutilのpeak_wset。benchlib.peak_rss_bytes）と、mlxではmx.get_peak_memory()
+（Metalの割り当てのピーク）。
 
 実行例:
     uv run --extra mlx python scripts/bench_speed.py --model var/dist/mlx --backend mlx \
@@ -14,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import resource
 import sys
 import time
 from pathlib import Path
@@ -22,11 +22,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import benchlib
-
-
-def max_rss_bytes() -> int:
-    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return int(rss if sys.platform == "darwin" else rss * 1024)
 
 
 def main() -> int:
@@ -46,7 +41,7 @@ def main() -> int:
     start = time.perf_counter()
     backend, tokenizer = benchlib.load_backend(args.model, args.backend, variant=args.variant, threads=args.threads)
     load_seconds = time.perf_counter() - start
-    rss_after_load = max_rss_bytes()
+    rss_after_load = benchlib.peak_rss_bytes()
 
     mx = None
     if args.backend == "mlx":
@@ -70,7 +65,7 @@ def main() -> int:
         "subset": args.subset,
         "model_load_seconds": load_seconds,
         **benchlib.speed_stats(audio_seconds, processing_seconds, warmup=args.warmup),
-        "max_rss_bytes": max_rss_bytes(),
+        "max_rss_bytes": benchlib.peak_rss_bytes(),
         "max_rss_bytes_after_load": rss_after_load,
         "conditions": "batch 1, one utterance at a time, warm-up excluded, audio loading excluded",
         "per_utterance": [

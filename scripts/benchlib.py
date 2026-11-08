@@ -86,6 +86,22 @@ def speed_stats(audio_seconds: Sequence[float], processing_seconds: Sequence[flo
     }
 
 
+def peak_rss_bytes() -> int:
+    """このプロセスのピークメモリ（bytes）。
+
+    macOS・Linuxはgetrusageのru_maxrss（macOSはbytes、Linuxはkibibytes）。
+    Windowsにはresourceが無いので、psutilのピークワーキングセット（peak_wset）を使う。
+    """
+    if sys.platform == "win32":
+        import psutil
+
+        return int(psutil.Process().memory_info().peak_wset)
+    import resource
+
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return int(rss if sys.platform == "darwin" else rss * 1024)
+
+
 def cer_percent(scores: dict[str, float]) -> dict[str, float]:
     """jacer.cerの戻り値（0〜1）を%にする。"""
     return {k: scores[k] * 100.0 for k in METRIC_KEYS}
