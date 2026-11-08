@@ -118,25 +118,6 @@ FLEURS全650発話から先頭3発話のウォームアップを除外した647�
 - 元モデルの公表RTFxはNVIDIA H200・バッチ512のため比較不可。
 - 同じ33.8分音声で上限なしではフットプリント13.96GB。実使用は1.25GBで一定。解放済みMetalバッファの保持でありリークではなく、既定の上限はこの増加を抑えるため。
 
-## 変換方法
-
-```sh
-pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-ja-local"
-hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
-haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-mlx
-```
-
-| 項目 | 値 |
-|---|---|
-| 変換元 | [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)の`Haas-ja-v1.0.nemo` |
-| リビジョン | `660728d39019e5e065046154beca44ac9a66a540`（2026-11-08取得） |
-| SHA-256 | `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa` |
-| サイズ | 1,232,384,000バイト |
-| 変換ツール | haas-ja-local 0.1.0（`model.safetensors`のメタデータに記録） |
-
-- bf16の値・型は不変。畳み込みのみMLXのチャンネル末尾配置へ変更: 2次元[O,I,H,W]→[O,H,W,I]、1次元（深さ方向を含む）[O,I,K]→[O,K,I]。
-- 再変換のテンソル値はビット一致。safetensorsのメタデータキー順は不定のため、ファイル全体のSHA-256は一致しない場合あり。
-
 ## ファイル一覧
 
 | ファイル | 内容 |
@@ -252,25 +233,6 @@ The PyTorch reference was compared on 6 FLEURS utterances against third-party fl
 - CLI, 33.8 minutes (2,026.5 seconds), 68 pieces: 6.97 seconds including startup/loading; maximum RSS 1.74 GB, peak footprint 3.48 GB.
 - Published RTFx uses NVIDIA H200, batch 512; not comparable.
 - Uncapped on the same 33.8-minute file: footprint 13.96 GB, active memory constant at 1.25 GB. Retained freed Metal buffers, not a leak; the default cap limits this growth.
-
-## Conversion
-
-```sh
-pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-ja-local"
-hf download third-intelligence/Haas-ja-v1.0 Haas-ja-v1.0.nemo --revision 660728d39019e5e065046154beca44ac9a66a540 --local-dir upstream
-haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-mlx
-```
-
-| Item | Value |
-|---|---|
-| Source | `Haas-ja-v1.0.nemo` from [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) |
-| Revision | `660728d39019e5e065046154beca44ac9a66a540` (downloaded 2026-11-08) |
-| SHA-256 | `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa` |
-| Size | 1,232,384,000 bytes |
-| Converter | haas-ja-local 0.1.0 (recorded in the `model.safetensors` metadata) |
-
-- bf16 values/types unchanged. Only convolution axes move to channels-last: 2-D [O,I,H,W]→[O,H,W,I]; 1-D, including depthwise, [O,I,K]→[O,K,I].
-- Repeated conversion gives bit-identical tensors. File SHA-256 may differ because safetensors metadata-key order is not fixed.
 
 ## Files
 
