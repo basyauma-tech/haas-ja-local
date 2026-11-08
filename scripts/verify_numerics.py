@@ -169,7 +169,10 @@ def compare_clip(model, tok, ref: ModuleType, enc_sess: Any, dec_sess: Any, wav:
 
 
 def passes(r: dict[str, Any]) -> dict[str, bool]:
+    # フレーム数が違うと(a)(b)は短い方の範囲しか比べないので、一致も合格条件に入れる
     return {
+        "mel_frames": r["mel_frames"] == r["mel_frames_reference"],
+        "encoded_frames": r["encoded_frames"] == r["encoded_frames_reference"],
         "a": r["mel_max_abs"] < THRESHOLDS["mel_max_abs"],
         "b": r["encoder_rel"] < THRESHOLDS["encoder_rel"],
         "c": r["joint_rel"] < THRESHOLDS["joint_rel"],
@@ -230,6 +233,7 @@ def main(argv: list[str] | None = None) -> int:
         "state_rel": max(r["state_rel"] for r in results),
         "tokens_equal": sum(r["tokens_equal"] for r in results),
         "tokens_equal_ourmel": sum(r["tokens_equal_ourmel"] for r in results),
+        "frames_equal": sum(r["pass"]["mel_frames"] and r["pass"]["encoded_frames"] for r in results),
         "clips": len(results),
     }
     report = {
