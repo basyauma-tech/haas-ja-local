@@ -6,7 +6,7 @@
 
 日本語音声認識モデル[Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)を、NeMo・CUDA・Tritonなしでローカル実行するための変換・推論パッケージです。元の`.nemo`から、Apple Silicon向けのMLX版とCPU向けのONNX版を作り、それぞれで認識できます。
 
-本パッケージは非公式の変換・推論パッケージであり、Third Intelligence, Inc.とは提携・承認・後援の関係にありません。MLX版の重みは元のbf16の値のままで、MLXの配置に合わせてテンソルの軸を並べ替えただけです。
+本パッケージは非公式のもので、Third Intelligence, Inc.とは提携・承認・後援の関係にありません。MLX版の重みは元のbf16の値のままで、MLXの配置に合わせてテンソルの軸を並べ替えただけです。
 
 ## 変換済みモデル
 
@@ -32,7 +32,7 @@ pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-
 
 ## 使い方
 
-変換済みモデルのディレクトリか、元の`.nemo`ファイルを指定します。ディレクトリに`model.safetensors`があればMLX版、`fp32/`か`int8/`があればONNX版、`.nemo`ならPyTorch版で動きます。
+変換済みモデルのディレクトリか、元の`.nemo`ファイルを指定します。ディレクトリに`model.safetensors`があればMLX版、`fp32/`か`int8/`があればONNX版、`.nemo`ならPyTorch版で動きます。`.nemo`から直接動かすには`[convert]`のextraが要ります。
 
 ```sh
 hf download basyauma-technology/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
@@ -63,7 +63,7 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx --int8
 ```
 
-公開しているMLX版は、SHA-256が`c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`の`.nemo`から作りました。
+Hugging FaceのMLX版は、SHA-256が`c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`の`.nemo`から変換しました。
 
 ## 検証記録
 
@@ -81,7 +81,7 @@ uv run ruff format --check .
 
 ## ライセンス
 
-Apache-2.0。詳細は[LICENSE](LICENSE)と[NOTICE](NOTICE)を参照してください。元モデルはThird Intelligence, Inc.によるもので、Apache-2.0で公開されています。実装にあたり、NVIDIA NeMo、third-intelligence/Haas-ASR、fla-org/flash-linear-attention、matsuurajun/haas-mlx、Sanami/haas-ja-onnx（いずれもApache-2.0）を参考にしました。
+Apache-2.0。詳細は[LICENSE](LICENSE)と[NOTICE](NOTICE)を参照してください。元モデルはThird Intelligence, Inc.によるもので、Apache-2.0で公開されています。実装にあたり、NVIDIA NeMo、third-intelligence/Haas-ASR、matsuurajun/haas-mlx、Sanami/haas-ja-onnx（以上Apache-2.0）と、fla-org/flash-linear-attention（MIT）を参考にしました。
 
 ---
 
@@ -100,8 +100,8 @@ Third Intelligence, Inc. The MLX weights are the original bf16 values; only tens
 
 | Format | Hugging Face | Status |
 |---|---|---|
-| MLX (Apple Silicon, bf16) | [basyauma-technology/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-technology/Haas-ja-v1.0-mlx) | coming soon |
-| ONNX (CPU, fp32 and int8) | basyauma-technology/Haas-ja-v1.0-onnx | coming soon |
+| MLX (Apple Silicon, bf16) | [basyauma-technology/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-technology/Haas-ja-v1.0-mlx) | publishing in progress |
+| ONNX (CPU, fp32 and int8) | basyauma-technology/Haas-ja-v1.0-onnx | planned |
 
 Accuracy, speed and limitations are documented in each model card. The draft of the MLX card is
 [docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md).
@@ -123,6 +123,7 @@ pip install "haas-ja-local[convert] @ git+https://github.com/basyauma-tech/haas-
 
 Pass a converted model directory or the original `.nemo` file. A directory with `model.safetensors` runs on MLX,
 one with `fp32/` or `int8/` runs on ONNX Runtime, and a `.nemo` file runs on PyTorch.
+Running directly from a `.nemo` file needs the `[convert]` extra.
 
 ```sh
 hf download basyauma-technology/Haas-ja-v1.0-mlx --local-dir Haas-ja-v1.0-mlx
@@ -153,7 +154,7 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 haas-ja-local convert-onnx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-onnx --int8
 ```
 
-The published MLX version was converted from the `.nemo` with SHA-256
+The MLX version on Hugging Face is converted from the `.nemo` with SHA-256
 `c6ed38698300a371a86eadab4b56d5458f47623f7fc4a5f1e938b5adbe8458aa`.
 
 ## Verification records (in Japanese)
@@ -174,4 +175,4 @@ uv run ruff format --check .
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The original model is by Third Intelligence, Inc. and is
 released under Apache-2.0. The implementation consulted NVIDIA NeMo, third-intelligence/Haas-ASR,
-fla-org/flash-linear-attention, matsuurajun/haas-mlx and Sanami/haas-ja-onnx (all Apache-2.0).
+matsuurajun/haas-mlx and Sanami/haas-ja-onnx (Apache-2.0), and fla-org/flash-linear-attention (MIT).

@@ -11,9 +11,11 @@ Original model:
   Copyright Third Intelligence, Inc.
   Licensed under the Apache License, Version 2.0
 
-Reference implementations (all licensed under the Apache License, Version 2.0):
+Reference implementations consulted:
+  Licensed under the Apache License, Version 2.0:
   - NVIDIA NeMo
   - third-intelligence/Haas-ASR
-  - fla-org/flash-linear-attention
   - matsuurajun/haas-mlx
   - Sanami/haas-ja-onnx
+  Licensed under the MIT License:
+  - fla-org/flash-linear-attention

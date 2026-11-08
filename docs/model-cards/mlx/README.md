@@ -21,7 +21,7 @@ tags:
 
 [English version below](#english)
 
-**非公式の変換物です。** 日本語音声認識モデル[third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)を、basyauma-technologyがMLX形式に変換しました。Third Intelligence, Inc.とは提携・承認・後援の関係にありません。重みは元のbf16の値のままで、MLXの配置に合わせてテンソルの軸を並べ替えただけです。
+**非公式の変換物です。** 日本語音声認識モデル[third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)を、basyauma-technologyがMLX形式に変換しました。Third Intelligence, Inc.とは提携・承認・後援の関係にありません。重みは元のbf16の値のままで、MLXの配置に合わせてテンソルの軸を並べ替え、推論に使わない値（`num_batches_tracked`）を除いただけです。Hugging Face上の分類はquantizedですが、量子化はしていません。
 
 ## 概要
 
@@ -73,7 +73,9 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav
 
 音声はsoundfileで読める形式（WAV・FLACなど）を受け付けます。複数チャンネルは平均してモノラルにし、16kHz以外はsoxrで16kHzに変換します。
 
-長時間音声: 30秒を超える音声は自動で分けて認識します。約30秒ごとに、目標位置の前後2秒の範囲で最も静かな0.1秒の窓の中心で切り、断片を1つずつ順に認識して結果をつなぎます。断片はまとめて処理しません。MLX版はMetalのバッファキャッシュを既定で1GiBに抑えます（`HaasMLX.load`の`cache_limit_bytes`で変更でき、`None`なら設定しません）。
+長時間音声: 30秒を超える音声は自動で分けて認識します。断片の先頭から30秒の位置を目標とし、切る位置は、その前後2秒のうち最も静かな0.1秒の窓の中心です。断片は1つずつ順に認識して結果をつなぎ、まとめて処理はしません。
+
+メモリ: MLX版はMetalのバッファキャッシュを既定で1GiBに抑えます（`HaasMLX.load`の`cache_limit_bytes`で変更でき、`None`なら設定しません）。
 
 タイムスタンプ: `--json --timestamps`を付けると、ファイルごとに1行のJSONを出し、トークンごとの開始・終了秒を含めます。時刻はエンコーダのフレーム（80ms）単位です。
 
@@ -106,7 +108,7 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 - 公表値は、元モデルのモデルカードと公開記事にあるasr-ja-bench v1.1での公式の測定（NeMo、bf16、H200）です。両者で小数第2位が違うため幅で示しました。差は幅の近い端からの差で、幅の中なら0としました。flexとkanaは公表値と照合していません。
 - 精度を合わせるための調整はしていません。1回目の実行の数値です。
 
-実装の確認: 推論コードの基準となる純PyTorch実装を、同じチェックポイントから第三者が書き出したfloat32のONNXとFLEURSの6発話で比べました。log-melの最大絶対差は9.54e-07、エンコーダ出力の相対誤差は最大4.36e-06、結合ネットワークのlogitsの相対誤差は最大1.16e-06で、トークン列は6発話すべてで一致しました。
+実装の確認: FLEURSの6発話で、推論コードの基準となる純PyTorch実装と、同じチェックポイントから第三者が書き出したfloat32のONNXを比べました。log-melの最大絶対差は9.54e-07、エンコーダ出力の相対誤差は最大4.36e-06、結合ネットワークのlogitsの相対誤差は最大1.16e-06で、トークン列は6発話すべてで一致しました。MLX実装そのものは、上のCERの表と、長時間音声でのPyTorch実装との比較（CER strict 6.44%と6.39%）で確かめています。
 
 未測定:
 
@@ -121,7 +123,7 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 
 FLEURSの650発話のうち、先頭3発話をウォームアップとして除いた647発話（合計2.35時間）で測りました。条件はバッチ1、1発話ずつ、Metal、エンコーダbf16、予測ネットワークと結合ネットワークfloat32です。処理時間は音声ファイルの読み込みを除いた認識だけの時間です。GBは10^9バイトです。
 
-| 項目 | 既定（キャッシュ上限1GiB） | 上限なし（参考） |
+| 項目 | 既定（キャッシュ上限1GiB） | 上限なし（参考、注） |
 |---|---:|---:|
 | RTFx（1発話ごとの中央値） | 254.2 | 250.9 |
 | RTFx（合計音声÷合計処理時間） | 256.1 | 255.9 |
@@ -129,6 +131,7 @@ FLEURSの650発話のうち、先頭3発話をウォームアップとして除�
 | mlxのピーク割り当て（`mx.get_peak_memory()`） | 1.76GB | 1.82GB |
 | macOSのピークメモリフットプリント | 3.19GB | 14.40GB |
 
+- 注: 上限なしの列のフットプリントは、同じ条件の再実行で測りました。他の値は1回目の実行のものです。
 - 1発話の処理時間の中央値は0.050秒、モデルの読み込みは0.15秒でした（どちらも上限なしでの測定。読み込みはファイルがOSのキャッシュに載った状態）。
 - 33.8分（2,026.5秒）の音声1本をCLIで認識すると、プロセスの起動とモデルの読み込みを含めて6.97秒、最大RSSは1.74GB、ピークメモリフットプリントは3.48GBでした。分割数は68です。
 - 元モデルが公表しているRTFxは、NVIDIA H200でバッチ512の測定です。条件がまったく違うため、この表とは比べられません。
@@ -166,8 +169,8 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 ## 制限事項
 
 - フィラー（「えー」「あの」など）は書き起こしから抜けやすく、表記（漢字・かな・数字）も指定できません。元モデルのモデルカードに記載のある性質です。
-- 無音や雑音だけの区間で短い語が出ることがありえます。10秒の無音と弱いホワイトノイズの合成音声4種では文字は出ませんでしたが、実際の録音では確かめていません。
-- 30秒を超える音声を分けて認識すると、CERが悪化します。FLEURSの150発話をつないだ33.8分の音声で、1発話ずつ認識してつなぐとCER strictは4.10%、30秒前後で分けて認識すると6.44%でした。PyTorch（float32）でも6.39%なので、MLXの数値誤差ではなく、モデルと分割のしかた（公式の`transcribe_longform`にならった規則）によるものです。67か所の境界のうち50か所が発話の途中にありました。話者の違う発話をつないだ音声での結果なので、実際の録音では差が小さい可能性があります。
+- 無音や雑音だけの区間で短い語が出る可能性があります。10秒の無音と弱いホワイトノイズの合成音声4種では文字は出ませんでしたが、実際の録音では確かめていません。
+- 30秒を超える音声を分けて認識すると、CERが悪化します。FLEURSの150発話をつないだ33.8分の音声で、1発話ずつ認識してつなぐとCER strictは4.10%、30秒前後で分けて認識すると6.44%でした。PyTorch（float32）でも6.39%なので、MLXの数値誤差ではなく、モデルと分割のしかた（公式の`transcribe_longform`にならった規則）によるものです。悪化のうち約1ポイントは、話者の違う発話をつないだことによります（発話を切らずに30秒以内にまとめて認識しても5.08%でした）。同じ話者が続けて話す実際の録音では、この分は小さい可能性があります。残る約1.4ポイントは発話の途中で切ったことによるもので、67か所の境界のうち50か所が発話の途中にありました。
 - ストリーミング認識には対応していません。
 - 話者ラベルは出しません。
 - 推論はバッチ1だけです。
@@ -180,13 +183,13 @@ haas-ja-local convert-mlx --nemo upstream/Haas-ja-v1.0.nemo --out Haas-ja-v1.0-m
 - 「Haas」は元モデルの名称で、変換元を示すためだけに使っています。
 - 関連するリンク: 元モデル[third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)、公式の推論パッケージ[third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR)、評価セット[third-intelligence/asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench)、CERの計算[third-intelligence/jacer](https://github.com/third-intelligence/jacer)。
 - 評価データのライセンスは、FLEURSがCC BY 4.0、JVNVがCC BY-SA 4.0です。評価データはこのリポジトリに含めず、再配布もしていません。
-- 実装にあたり、次の公開実装（いずれもApache-2.0）を参考にしました: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)、[third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR)、[fla-org/flash-linear-attention](https://github.com/fla-org/flash-linear-attention)、[matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx)、[Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx)。Sanami/haas-ja-onnxのfloat32のONNXは数値の比較にだけ使い、その重みは再配布していません。このリポジトリの重みは、すべて元の`.nemo`から自分で変換したものです。
+- 実装にあたり、次の公開実装を参考にしました: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)、[third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR)、[matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx)、[Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx)（以上Apache-2.0）、[fla-org/flash-linear-attention](https://github.com/fla-org/flash-linear-attention)（MIT）。Sanami/haas-ja-onnxのfloat32のONNXは数値の比較にだけ使い、その重みは再配布していません。このリポジトリの重みは、すべて元の`.nemo`からbasyauma-technologyが変換したものです。
 
 ---
 
 # English
 
-**This is an unofficial conversion.** basyauma-technology converted the Japanese speech recognition model [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) to the MLX format. It is not affiliated with, endorsed by, or sponsored by Third Intelligence, Inc. The weights are the original bf16 values; only tensor axes were rearranged for MLX.
+**This is an unofficial conversion.** basyauma-technology converted the Japanese speech recognition model [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) to the MLX format. It is not affiliated with, endorsed by, or sponsored by Third Intelligence, Inc. The weights are the original bf16 values; the only changes are rearranged tensor axes for MLX and dropped values that inference does not use (`num_batches_tracked`). Hugging Face lists this repository under quantized, but no quantization was applied.
 
 ## Overview
 
@@ -238,7 +241,9 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav
 
 Any format soundfile can read (WAV, FLAC and others) is accepted. Multiple channels are averaged to mono, and audio is resampled to 16 kHz with soxr when needed.
 
-Long audio: audio longer than 30 seconds is split automatically. Roughly every 30 seconds, it is cut at the centre of the quietest 0.1-second window within 2 seconds of the target point; the pieces are transcribed one at a time and the results are joined. Pieces are not batched. The MLX backend caps the Metal buffer cache at 1 GiB by default (change it with `cache_limit_bytes` in `HaasMLX.load`; `None` leaves it untouched).
+Long audio: audio longer than 30 seconds is split automatically. The target is 30 seconds after the start of the current piece, and the cut is placed at the centre of the quietest 0.1-second window within 2 seconds of that target. The pieces are transcribed one at a time and the results are joined; they are not batched.
+
+Memory: the MLX backend caps the Metal buffer cache at 1 GiB by default (change it with `cache_limit_bytes` in `HaasMLX.load`; `None` leaves it untouched).
 
 Timestamps: with `--json --timestamps`, one JSON line is printed per file, including start and end seconds for each token. Times are in units of encoder frames (80 ms).
 
@@ -271,7 +276,7 @@ Conditions:
 - Published values are the official asr-ja-bench v1.1 results (NeMo, bf16, H200) from the original model card and the release blog post. They differ in the second decimal place, so both are shown as a range. The difference is measured from the nearer end of the range and is 0 inside it. flex and kana were not compared with published values.
 - Nothing was tuned to match the published values. These are the numbers from the first run.
 
-Implementation check: the pure PyTorch implementation that serves as the reference for the inference code was compared, on six FLEURS utterances, with a float32 ONNX export of the same checkpoint made by a third party. The maximum absolute log-mel difference was 9.54e-07, the maximum relative error of the encoder output 4.36e-06 and that of the joint network logits 1.16e-06; the token sequences matched for all six utterances.
+Implementation check: on six FLEURS utterances, the pure PyTorch implementation that serves as the reference for the inference code was compared with a float32 ONNX export of the same checkpoint made by a third party. The maximum absolute log-mel difference was 9.54e-07, the maximum relative error of the encoder output 4.36e-06 and that of the joint network logits 1.16e-06; the token sequences matched for all six utterances. The MLX implementation itself is checked by the CER table above and by comparison with the PyTorch implementation on long audio (CER strict 6.44% vs 6.39%).
 
 Not measured:
 
@@ -286,7 +291,7 @@ Details and reproduction steps are in the verification records on GitHub: [accur
 
 Measured on 647 of the 650 FLEURS utterances (2.35 hours in total), excluding the first three as warm-up. Conditions: batch size 1, one utterance at a time, Metal, bf16 encoder, float32 prediction and joint networks. Times cover transcription only, not reading the audio file. GB means 10^9 bytes.
 
-| Item | Default (1 GiB cache cap) | No cap (reference) |
+| Item | Default (1 GiB cache cap) | No cap (reference, see note) |
 |---|---:|---:|
 | RTFx (median per utterance) | 254.2 | 250.9 |
 | RTFx (total audio / total processing time) | 256.1 | 255.9 |
@@ -294,6 +299,7 @@ Measured on 647 of the 650 FLEURS utterances (2.35 hours in total), excluding th
 | mlx peak allocation (`mx.get_peak_memory()`) | 1.76 GB | 1.82 GB |
 | macOS peak memory footprint | 3.19 GB | 14.40 GB |
 
+- Note: in the no-cap column, the memory footprint was measured in a rerun under the same conditions; the other values are from the first run.
 - The median time per utterance was 0.050 seconds and model loading took 0.15 seconds (both measured without the cap; loading with the files already in the OS cache).
 - Transcribing one 33.8-minute file (2,026.5 seconds) with the CLI took 6.97 seconds including process start-up and model loading, with a maximum RSS of 1.74 GB and a peak memory footprint of 3.48 GB. The audio was split into 68 pieces.
 - The RTFx published for the original model was measured on an NVIDIA H200 at batch size 512. The conditions are entirely different, so it cannot be compared with this table.
@@ -332,7 +338,7 @@ Converting the same `.nemo` again gives bit-identical tensor values. The SHA-256
 
 - Fillers (such as "えー" and "あの") tend to be omitted, and the writing style (kanji, kana, numerals) cannot be chosen. The original model card describes this behaviour.
 - Short words may appear in stretches of silence or noise. Four synthetic 10-second inputs (silence and weak white noise) produced no text, but this has not been checked on real recordings.
-- Splitting audio longer than 30 seconds raises the CER. On a 33.8-minute file made by joining 150 FLEURS utterances, CER strict was 4.10% when each utterance was transcribed on its own and the results joined, and 6.44% when the file was split into pieces of about 30 seconds. PyTorch (float32) gives 6.39%, so this comes from the model and the way the audio is split (a rule modelled on the official `transcribe_longform`), not from MLX numerics. 50 of the 67 cut points fell inside an utterance. The file joins utterances from different speakers, so the gap may be smaller on real recordings.
+- Splitting audio longer than 30 seconds raises the CER. On a 33.8-minute file made by joining 150 FLEURS utterances, CER strict was 4.10% when each utterance was transcribed on its own and the results joined, and 6.44% when the file was split into pieces of about 30 seconds. PyTorch (float32) gives 6.39%, so this comes from the model and the way the audio is split (a rule modelled on the official `transcribe_longform`), not from MLX numerics. About 1 point of the increase comes from joining utterances by different speakers (grouping whole utterances into pieces of up to 30 seconds, without cutting any, already gave 5.08%); this part may be smaller on real recordings where the same speaker keeps talking. The remaining 1.4 points or so come from cuts inside utterances: 50 of the 67 cut points fell inside an utterance.
 - No streaming recognition.
 - No speaker labels.
 - Batch size 1 only.
@@ -345,4 +351,4 @@ Converting the same `.nemo` again gives bit-identical tensor values. The SHA-256
 - "Haas" is the name of the original model and is used here only to identify the source.
 - Related links: the original model [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0), the official inference package [third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR), the benchmark [third-intelligence/asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench), and the CER library [third-intelligence/jacer](https://github.com/third-intelligence/jacer).
 - Evaluation data licences: FLEURS is CC BY 4.0 and JVNV is CC BY-SA 4.0. The evaluation data is not included in or redistributed from this repository.
-- The implementation consulted these public implementations, all under Apache-2.0: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo), [third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR), [fla-org/flash-linear-attention](https://github.com/fla-org/flash-linear-attention), [matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx) and [Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx). The float32 ONNX from Sanami/haas-ja-onnx was used only for numerical comparison, and its weights are not redistributed. All weights in this repository were converted from the original `.nemo` by us.
+- The implementation consulted these public implementations: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo), [third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR), [matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx) and [Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx) (Apache-2.0), and [fla-org/flash-linear-attention](https://github.com/fla-org/flash-linear-attention) (MIT). The float32 ONNX from Sanami/haas-ja-onnx was used only for numerical comparison, and its weights are not redistributed. All weights in this repository were converted from the original `.nemo` by basyauma-technology.

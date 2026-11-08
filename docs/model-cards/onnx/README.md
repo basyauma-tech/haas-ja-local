@@ -24,7 +24,7 @@ tags:
 
 [English version below](#english)
 
-**非公式の変換物です。** 日本語音声認識モデル[third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)を、basyauma-technologyがONNX形式に変換しました。Third Intelligence, Inc.とは提携・承認・後援の関係にありません。fp32版は元のbf16の重みをfloat32にしてONNXに書き出したもので、int8版はそれをONNX Runtimeの動的量子化で8ビット整数にしたものです。
+**非公式の変換物です。** 日本語音声認識モデル[third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)を、basyauma-technologyがONNX形式に変換しました。Third Intelligence, Inc.とは提携・承認・後援の関係にありません。fp32版は元のbf16の重みをfloat32にしてONNXに書き出したもので、int8版はそれをONNX Runtimeの動的量子化で8ビット整数にしたものです。Hugging Face上の分類はquantizedですが、量子化しているのはint8版だけで、fp32版は量子化していません。
 
 ## 概要
 
@@ -143,7 +143,7 @@ TODO(Task 12/13): 書き出しでしていること（float32への変換、ト�
 ## 制限事項
 
 - フィラー（「えー」「あの」など）は書き起こしから抜けやすく、表記（漢字・かな・数字）も指定できません。元モデルのモデルカードに記載のある性質です。
-- 無音や雑音だけの区間で短い語が出ることがありえます。
+- 無音や雑音だけの区間で短い語が出る可能性があります。
 - 30秒を超える音声を分けて認識すると、CERが悪化します。TODO(Task 12/13): ONNX版での数値、またはMLX版の記録への参照。
 - ストリーミング認識には対応していません。
 - 話者ラベルは出しません。
@@ -157,13 +157,13 @@ TODO(Task 12/13): 書き出しでしていること（float32への変換、ト�
 - 「Haas」は元モデルの名称で、変換元を示すためだけに使っています。
 - 関連するリンク: 元モデル[third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0)、公式の推論パッケージ[third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR)、評価セット[third-intelligence/asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench)、CERの計算[third-intelligence/jacer](https://github.com/third-intelligence/jacer)。
 - 評価データのライセンスは、FLEURSがCC BY 4.0、JVNVがCC BY-SA 4.0です。評価データはこのリポジトリに含めず、再配布もしていません。
-- 実装にあたり、次の公開実装（いずれもApache-2.0）を参考にしました: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)、[third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR)、[fla-org/flash-linear-attention](https://github.com/fla-org/flash-linear-attention)、[matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx)、[Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx)。Sanami/haas-ja-onnxのONNXは数値の比較にだけ使い、その重みは再配布していません。このリポジトリの重みは、すべて元の`.nemo`から自分で変換したものです。
+- 実装にあたり、次の公開実装を参考にしました: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo)、[third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR)、[matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx)、[Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx)（以上Apache-2.0）、[fla-org/flash-linear-attention](https://github.com/fla-org/flash-linear-attention)（MIT）。Sanami/haas-ja-onnxのONNXは数値の比較にだけ使い、その重みは再配布していません。このリポジトリの重みは、すべて元の`.nemo`からbasyauma-technologyが変換したものです。
 
 ---
 
 # English
 
-**This is an unofficial conversion.** basyauma-technology converted the Japanese speech recognition model [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) to the ONNX format. It is not affiliated with, endorsed by, or sponsored by Third Intelligence, Inc. The fp32 variant is the original bf16 weights cast to float32 and exported to ONNX; the int8 variant is that export quantized to 8-bit integers with ONNX Runtime dynamic quantization.
+**This is an unofficial conversion.** basyauma-technology converted the Japanese speech recognition model [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0) to the ONNX format. It is not affiliated with, endorsed by, or sponsored by Third Intelligence, Inc. The fp32 variant is the original bf16 weights cast to float32 and exported to ONNX; the int8 variant is that export quantized to 8-bit integers with ONNX Runtime dynamic quantization. Hugging Face lists this repository under quantized; only the int8 variant is quantized, and the fp32 variant is not.
 
 ## Overview
 
@@ -296,4 +296,4 @@ TODO(Task 12/13): what the export does (cast to float32, tracing method, int8 qu
 - "Haas" is the name of the original model and is used here only to identify the source.
 - Related links: the original model [third-intelligence/Haas-ja-v1.0](https://huggingface.co/third-intelligence/Haas-ja-v1.0), the official inference package [third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR), the benchmark [third-intelligence/asr-ja-bench](https://huggingface.co/datasets/third-intelligence/asr-ja-bench), and the CER library [third-intelligence/jacer](https://github.com/third-intelligence/jacer).
 - Evaluation data licences: FLEURS is CC BY 4.0 and JVNV is CC BY-SA 4.0. The evaluation data is not included in or redistributed from this repository.
-- The implementation consulted these public implementations, all under Apache-2.0: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo), [third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR), [fla-org/flash-linear-attention](https://github.com/fla-org/flash-linear-attention), [matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx) and [Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx). The ONNX files from Sanami/haas-ja-onnx were used only for numerical comparison, and their weights are not redistributed. All weights in this repository were converted from the original `.nemo` by us.
+- The implementation consulted these public implementations: [NVIDIA NeMo](https://github.com/NVIDIA/NeMo), [third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR), [matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx) and [Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx) (Apache-2.0), and [fla-org/flash-linear-attention](https://github.com/fla-org/flash-linear-attention) (MIT). The ONNX files from Sanami/haas-ja-onnx were used only for numerical comparison, and their weights are not redistributed. All weights in this repository were converted from the original `.nemo` by basyauma-technology.
