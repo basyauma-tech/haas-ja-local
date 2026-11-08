@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from haas_ja_local.config import HaasConfig
+from haas_ja_local.config import HaasConfig, QuantizationConfig
 
 EXCERPT = Path(__file__).parent / "data" / "model_config_excerpt.yaml"
 
@@ -24,7 +24,29 @@ def test_json_has_all_fields_and_durations_as_list(tmp_path):
     HaasConfig().to_json(tmp_path / "config.json")
     data = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
     assert data["durations"] == [0, 1, 2, 3, 4]
-    assert set(data) == set(HaasConfig.__dataclass_fields__)
+    # quantizationは量子化版にだけ書く（bf16版・ONNX版のconfig.jsonは従来と同じ）
+    assert set(data) == set(HaasConfig.__dataclass_fields__) - {"quantization"}
+
+
+def test_quantization_json_roundtrip(tmp_path):
+    c = HaasConfig(source_sha256="ab" * 32, quantization=QuantizationConfig(bits=4, group_size=64))
+    c.to_json(tmp_path / "config.json")
+    data = json.loads((tmp_path / "config.json").read_text(encoding="utf-8"))
+    assert data["quantization"] == {"bits": 4, "group_size": 64, "targets": "linear"}
+    assert HaasConfig.from_json(tmp_path / "config.json") == c
+    assert hash(c) == hash(HaasConfig.from_json(tmp_path / "config.json"))
+
+
+def test_quantization_defaults_to_none_for_existing_config_json(tmp_path):
+    # 公開済みのbf16版のconfig.json（quantizationなし）はそのまま読める
+    HaasConfig().to_json(tmp_path / "config.json")
+    assert HaasConfig.from_json(tmp_path / "config.json").quantization is None
+
+
+@pytest.mark.parametrize(("bits", "group_size", "targets"), [(3, 64, "linear"), (8, 48, "linear"), (8, 64, "all")])
+def test_quantization_rejects_unsupported_values(bits, group_size, targets):
+    with pytest.raises(ValueError):
+        QuantizationConfig(bits=bits, group_size=group_size, targets=targets)
 
 
 def test_from_model_config_yaml_reads_upstream_values():
