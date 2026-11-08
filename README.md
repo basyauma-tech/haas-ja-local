@@ -12,10 +12,10 @@
 
 | 形式 | Hugging Face | 状態 |
 |---|---|---|
-| MLX（Apple Silicon、bf16） | [basyauma-technology/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-technology/Haas-ja-v1.0-mlx) | 公開準備中 |
+| MLX（Apple Silicon、bf16） | [basyauma-technology/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-technology/Haas-ja-v1.0-mlx) | 公開中 |
 | ONNX（CPU、fp32・int8） | basyauma-technology/Haas-ja-v1.0-onnx | 準備中 |
 
-精度・速度・制限事項は各モデルカードに書きます。MLX版のカードの原稿は[docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md)です。
+精度・速度・制限事項は各モデルカードに書きます。MLX版のカードの元ファイルは[docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md)です。
 
 ## インストール
 
@@ -100,10 +100,10 @@ Third Intelligence, Inc. The MLX weights are the original bf16 values; only tens
 
 | Format | Hugging Face | Status |
 |---|---|---|
-| MLX (Apple Silicon, bf16) | [basyauma-technology/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-technology/Haas-ja-v1.0-mlx) | publishing in progress |
+| MLX (Apple Silicon, bf16) | [basyauma-technology/Haas-ja-v1.0-mlx](https://huggingface.co/basyauma-technology/Haas-ja-v1.0-mlx) | published |
 | ONNX (CPU, fp32 and int8) | basyauma-technology/Haas-ja-v1.0-onnx | planned |
 
-Accuracy, speed and limitations are documented in each model card. The draft of the MLX card is
+Accuracy, speed and limitations are documented in each model card. The source of the MLX card is
 [docs/model-cards/mlx/README.md](docs/model-cards/mlx/README.md).
 
 ## Installation
