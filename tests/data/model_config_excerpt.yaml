@@ -1,0 +1,113 @@
+sample_rate: 16000
+rnnt_reduction: mean_volume
+model_defaults:
+  enc_hidden: 1024
+  pred_hidden: 640
+  joint_hidden: 640
+tokenizer:
+  dir: null
+  type: bpe
+  model_path: nemo:74b21e79e00d473eb171526fc011af5b_tokenizer.model
+  vocab_path: nemo:9bb33e5d08a542d19df5aef572719bcf_vocab.txt
+  spe_tokenizer_vocab: nemo:c97eb8b2ac9b4a10a833aa9867e20fec_tokenizer.vocab
+preprocessor:
+  _target_: nemo.collections.asr.modules.AudioToMelSpectrogramPreprocessor
+  sample_rate: 16000
+  normalize: per_feature
+  window_size: 0.025
+  window_stride: 0.01
+  window: hann
+  features: 128
+  n_fft: 512
+  log: true
+encoder:
+  _target_: nemo.collections.asr.modules.ConformerEncoder
+  feat_in: 128
+  feat_out: -1
+  n_layers: 24
+  d_model: 1024
+  subsampling: dw_striding
+  subsampling_factor: 8
+  subsampling_conv_channels: 256
+  causal_downsampling: false
+  ff_expansion_factor: 4
+  self_attention_model: rel_pos
+  n_heads: 8
+  att_context_size:
+  - -1
+  - -1
+  att_context_style: regular
+  xscaling: true
+  untie_biases: true
+  pos_emb_max_len: 5000
+  conv_kernel_size: 9
+  conv_norm_type: batch_norm
+  conv_context_size: null
+  use_bias: false
+  dropout: 0.1
+  dropout_pre_encoder: 0.1
+  dropout_emb: 0.0
+  dropout_att: 0.1
+  stochastic_depth_drop_prob: 0.0
+decoder:
+  _target_: haas_asr.prednet.KDATransducerDecoder
+  normalization_mode: null
+  random_state_sampling: false
+  blank_as_pad: true
+  prednet:
+    pred_hidden: 640
+    pred_rnn_layers: 2
+    t_max: null
+    dropout: 0.2
+    kda_num_heads: 5
+    kda_head_dim: 64
+    kda_expand_v: 1.0
+    kda_conv_size: 4
+    kda_final_norm: true
+  vocab_size: 3072
+joint:
+  _target_: nemo.collections.asr.modules.RNNTJoint
+  log_softmax: null
+  preserve_memory: false
+  fuse_loss_wer: true
+  fused_batch_size: 32
+  num_extra_outputs: 5
+  jointnet:
+    joint_hidden: 640
+    activation: relu
+    dropout: 0.2
+    encoder_hidden: 1024
+    pred_hidden: 640
+  num_classes: 3072
+loss:
+  loss_name: tdt
+  tdt_kwargs:
+    fastemit_lambda: 0.0
+    clamp: -1.0
+    durations:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    sigma: 0.05
+    omega: 0.1
+decoding:
+  strategy: greedy_batch
+  model_type: tdt
+  durations:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  greedy:
+    max_symbols: 10
+  beam:
+    beam_size: 2
+    return_best_hypothesis: false
+    score_norm: true
+    tsd_max_sym_exp: 50
+    alsd_max_target_len: 2.0
+target: nemo.collections.asr.models.EncDecRNNTBPEModel
+nemo_version: 2.7.3
