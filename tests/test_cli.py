@@ -114,3 +114,26 @@ def test_bad_variant_exits_2():
     with pytest.raises(SystemExit) as exc:
         main(["transcribe", "model", "a.wav", "--variant", "fp16"])
     assert exc.value.code == 2
+
+
+class _FakeStdout:
+    def __init__(self):
+        self.calls = []
+
+    def reconfigure(self, **kwargs):
+        self.calls.append(kwargs)
+
+
+@pytest.mark.parametrize(
+    ("platform", "expected"), [("win32", [{"encoding": "utf-8", "errors": "replace"}]), ("linux", [])]
+)
+def test_main_makes_stdout_utf8_only_on_windows(monkeypatch, platform, expected):
+    # Windowsの標準出力は既定でcp932などになり、書き起こしの文字が化けるか落ちる
+    import sys
+
+    fake = _FakeStdout()
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.setattr(sys, "stdout", fake)
+    with pytest.raises(SystemExit):
+        main(["--help-does-not-exist"])
+    assert fake.calls == expected

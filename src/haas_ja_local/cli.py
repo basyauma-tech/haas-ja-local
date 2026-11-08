@@ -121,7 +121,14 @@ def _run_convert_onnx(args: argparse.Namespace) -> int:
     return 0
 
 
+def _utf8_stdout_on_windows() -> None:
+    """Windowsの標準出力（既定はcp932など）をUTF-8にする。書けない文字は置き換えて落ちないようにする。"""
+    if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    _utf8_stdout_on_windows()
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command == "convert-onnx" and args.exclude_decoder and not args.int8:
