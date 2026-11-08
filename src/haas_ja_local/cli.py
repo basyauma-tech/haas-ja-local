@@ -10,8 +10,7 @@ from pathlib import Path
 
 from haas_ja_local.audio import load_audio
 from haas_ja_local.config import HaasConfig
-from haas_ja_local.pipeline import Transcript, load_model, transcribe
-from haas_ja_local.tokenizer import Tokenizer
+from haas_ja_local.pipeline import load_model, token_records, transcribe
 
 PROG = "haas-ja-local"
 
@@ -40,16 +39,6 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _token_records(transcript: Transcript, tokenizer: Tokenizer, frame_seconds: float) -> list[dict]:
-    records = []
-    for token, offset in zip(transcript.tokens, transcript.offsets, strict=True):
-        start = offset + token.frame * frame_seconds
-        end = start + max(token.duration, 1) * frame_seconds
-        text = tokenizer.pieces([token.id])[0].replace("▁", " ")
-        records.append({"text": text, "start": round(start, 3), "end": round(end, 3)})
-    return records
-
-
 def _run_transcribe(args: argparse.Namespace) -> int:
     for path in args.audio:
         if not path.is_file():
@@ -67,7 +56,7 @@ def _run_transcribe(args: argparse.Namespace) -> int:
         if args.json:
             record: dict = {"file": str(path), "text": result.text}
             if args.timestamps:
-                record["tokens"] = _token_records(result, tokenizer, config.frame_seconds)
+                record["tokens"] = token_records(result.tokens, result.offsets, tokenizer, config.frame_seconds)
             print(json.dumps(record, ensure_ascii=False))
         elif len(args.audio) > 1:
             print(f"{path}\t{result.text}")

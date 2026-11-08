@@ -77,14 +77,14 @@ haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav
 
 メモリ: MLX版はMetalのバッファキャッシュを既定で1GiBに抑えます（`HaasMLX.load`の`cache_limit_bytes`で変更でき、`None`なら設定しません）。
 
-タイムスタンプ: `--json --timestamps`を付けると、ファイルごとに1行のJSONを出し、トークンごとの開始・終了秒を含めます。時刻はエンコーダのフレーム（80ms）単位です。
+タイムスタンプ: `--json --timestamps`を付けると、ファイルごとに1行のJSONを出し、トークンごとの開始・終了秒を含めます。時刻はエンコーダのフレーム（80ms）単位です。辞書に無い文字が複数のバイトトークンに分かれた場合は、1文字にまとめて1件にします。
 
 ```sh
 haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 ```
 
 ```json
-{"file": "audio.wav", "text": "今日は良い天気ですね。", "tokens": [{"text": " 今", "start": 0.0, "end": 0.32}, {"text": "日は", "start": 0.32, "end": 0.64}, {"text": "良", "start": 0.64, "end": 0.88}, {"text": "い", "start": 0.88, "end": 1.04}, {"text": "天", "start": 1.04, "end": 1.28}, {"text": "気", "start": 1.28, "end": 1.6}, {"text": "ですね", "start": 1.6, "end": 1.84}, {"text": "。", "start": 1.84, "end": 2.0}]}
+{"file": "audio.wav", "text": "今日は良い天気ですね。", "tokens": [{"text": "今", "start": 0.0, "end": 0.32}, {"text": "日は", "start": 0.32, "end": 0.64}, {"text": "良", "start": 0.64, "end": 0.88}, {"text": "い", "start": 0.88, "end": 1.04}, {"text": "天", "start": 1.04, "end": 1.28}, {"text": "気", "start": 1.28, "end": 1.6}, {"text": "ですね", "start": 1.6, "end": 1.84}, {"text": "。", "start": 1.84, "end": 2.0}]}
 ```
 
 ## 精度
@@ -245,14 +245,14 @@ Long audio: audio longer than 30 seconds is split automatically. The target is 3
 
 Memory: the MLX backend caps the Metal buffer cache at 1 GiB by default (change it with `cache_limit_bytes` in `HaasMLX.load`; `None` leaves it untouched).
 
-Timestamps: with `--json --timestamps`, one JSON line is printed per file, including start and end seconds for each token. Times are in units of encoder frames (80 ms).
+Timestamps: with `--json --timestamps`, one JSON line is printed per file, including start and end seconds for each token. Times are in units of encoder frames (80 ms). A character that the vocabulary spells as several byte tokens is merged back into one entry.
 
 ```sh
 haas-ja-local transcribe Haas-ja-v1.0-mlx audio.wav --json --timestamps
 ```
 
 ```json
-{"file": "audio.wav", "text": "今日は良い天気ですね。", "tokens": [{"text": " 今", "start": 0.0, "end": 0.32}, {"text": "日は", "start": 0.32, "end": 0.64}, {"text": "良", "start": 0.64, "end": 0.88}, {"text": "い", "start": 0.88, "end": 1.04}, {"text": "天", "start": 1.04, "end": 1.28}, {"text": "気", "start": 1.28, "end": 1.6}, {"text": "ですね", "start": 1.6, "end": 1.84}, {"text": "。", "start": 1.84, "end": 2.0}]}
+{"file": "audio.wav", "text": "今日は良い天気ですね。", "tokens": [{"text": "今", "start": 0.0, "end": 0.32}, {"text": "日は", "start": 0.32, "end": 0.64}, {"text": "良", "start": 0.64, "end": 0.88}, {"text": "い", "start": 0.88, "end": 1.04}, {"text": "天", "start": 1.04, "end": 1.28}, {"text": "気", "start": 1.28, "end": 1.6}, {"text": "ですね", "start": 1.6, "end": 1.84}, {"text": "。", "start": 1.84, "end": 2.0}]}
 ```
 
 ## Accuracy

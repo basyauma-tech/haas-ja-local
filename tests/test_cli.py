@@ -35,17 +35,17 @@ def test_transcribe_json_timestamps(tiny_nemo, wav, capsys):
 
 def test_token_times_and_piece_text(tiny_nemo, wav, capsys, monkeypatch):
     # 2番目の断片（offset 29.95秒。浮動小数の誤差が出る値）のトークンで、
-    # 時刻の式・duration 0の扱い・丸め・"▁"の置換を確かめる
+    # 時刻の式・duration 0の扱い・丸め・先頭の"▁"の除去を確かめる
     from haas_ja_local.tokenizer import Tokenizer
 
-    monkeypatch.setattr(Tokenizer, "pieces", lambda self, ids: ["▁か" if ids[0] == 3 else "な"])
+    monkeypatch.setattr(Tokenizer, "pieces", lambda self, ids: ["▁か" if i == 3 else "な" for i in ids])
     fixed = Transcript("かな", (TimedToken(3, 3, 0), TimedToken(4, 7, 3)), (29.95, 29.95))
     monkeypatch.setattr("haas_ja_local.cli.transcribe", lambda *a, **k: fixed)
     assert main(["transcribe", str(tiny_nemo), str(wav), "--json", "--timestamps"]) == 0
     record = json.loads(capsys.readouterr().out)
     assert record["text"] == "かな"
     assert record["tokens"] == [
-        {"text": " か", "start": 30.19, "end": 30.27},
+        {"text": "か", "start": 30.19, "end": 30.27},
         {"text": "な", "start": 30.51, "end": 30.75},
     ]
 

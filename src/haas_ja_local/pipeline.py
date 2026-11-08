@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import importlib
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol
 
 import numpy as np
 
@@ -112,3 +114,47 @@ def transcribe(
         tokens.extend(chunk_tokens)
         offsets.extend([start / sample_rate] * len(chunk_tokens))
     return Transcript("".join(texts), tuple(tokens), tuple(offsets))
+
+
+_BYTE_PIECE = re.compile(r"<0x[0-9A-Fa-f]{2}>")
+
+
+class _PieceTokenizer(Protocol):
+    def pieces(self, ids: Sequence[int]) -> list[str]: ...
+
+    def decode(self, ids: Sequence[int]) -> str: ...
+
+
+def token_records(
+    tokens: Sequence[TimedToken], offsets: Sequence[float], tokenizer: _PieceTokenizer, frame_seconds: float
+) -> list[dict]:
+    """トークン列を{"text", "start", "end"}（秒、ミリ秒に丸め）の列にする。CLIの--timestampsで使う。
+
+    続くバイトフォールバックのpiece（`<0xE9>`など）は同じ断片の中で1つにまとめ、tokenizer.decodeで文字に戻す。
+    通常のpieceは先頭の"▁"を消し（日本語には語の区切りの空白が無い）、途中の"▁"は空白にする。
+    文字列が空になったものは捨てる。startは先頭トークンの開始、endは末尾トークンの終了（duration 0は1フレーム）。
+    """
+    if len(tokens) != len(offsets):
+        raise ValueError(f"tokens ({len(tokens)}) and offsets ({len(offsets)}) differ in length")
+    pieces = tokenizer.pieces([t.id for t in tokens])
+
+    def start_of(i: int) -> float:
+        return offsets[i] + tokens[i].frame * frame_seconds
+
+    def end_of(i: int) -> float:
+        return start_of(i) + max(tokens[i].duration, 1) * frame_seconds
+
+    records: list[dict] = []
+    i = 0
+    while i < len(tokens):
+        j = i + 1
+        if _BYTE_PIECE.fullmatch(pieces[i]):
+            while j < len(tokens) and _BYTE_PIECE.fullmatch(pieces[j]) and offsets[j] == offsets[i]:
+                j += 1
+            text = tokenizer.decode([t.id for t in tokens[i:j]])
+        else:
+            text = pieces[i].removeprefix("▁").replace("▁", " ")
+        if text:
+            records.append({"text": text, "start": round(start_of(i), 3), "end": round(end_of(j - 1), 3)})
+        i = j
+    return records
