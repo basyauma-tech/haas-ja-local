@@ -31,6 +31,7 @@ def test_convert_tiny_nemo_writes_expected_files(tiny_nemo, tiny_config, tiny_to
     assert metadata["source_sha256"] == cfg.source_sha256
     assert metadata["source_repo"] == cfg.source_repo
     assert metadata["converter"] == "haas-ja-local 0.1.0"
+    assert "quantization" not in metadata  # bf16版のメタデータは従来どおり
 
 
 def test_layout_rules_cover_every_key(tiny_config):

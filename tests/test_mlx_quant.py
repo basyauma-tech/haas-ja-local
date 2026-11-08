@@ -190,6 +190,39 @@ def test_convert_quantized_fails_closed_on_indivisible_input(tiny_nemo, tmp_path
     assert not (tmp_path / "out").exists()
 
 
+def _quantize_all_but_joint_enc(module, quantization):
+    nn.quantize(
+        module,
+        group_size=quantization.group_size,
+        bits=quantization.bits,
+        class_predicate=lambda path, m: isinstance(m, nn.Linear) and path != "joint.enc",
+    )
+
+
+def _quantize_linear_and_embedding(module, quantization):
+    nn.quantize(
+        module,
+        group_size=quantization.group_size,
+        bits=quantization.bits,
+        class_predicate=lambda _path, m: isinstance(m, (nn.Linear, nn.Embedding)),
+    )
+
+
+@pytest.mark.parametrize(
+    ("quantize", "message"),
+    [
+        (_quantize_all_but_joint_enc, "joint.enc.scales"),  # 線形層の量子化漏れ
+        (_quantize_linear_and_embedding, "decoder.prediction.embed.scales"),  # 線形層以外の量子化
+    ],
+)
+def test_convert_quantized_fails_closed_on_unexpected_layout(quant_nemo, tmp_path, monkeypatch, quantize, message):
+    # 変換器がHaasModuleを量子化した結果のキー集合を検査し、想定と違えば何も書かない
+    monkeypatch.setattr("haas_ja_local.mlx_model.quantize_linear_layers", quantize)
+    with pytest.raises(ValueError, match=re.escape(message)):
+        convert_nemo_to_mlx(quant_nemo, tmp_path / "out", quantization=Q8)
+    assert not (tmp_path / "out").exists()
+
+
 def test_convert_quantized_needs_macos(quant_nemo, tmp_path, monkeypatch):
     monkeypatch.setattr("sys.platform", "linux")
     with pytest.raises(ValueError, match="macOS"):
