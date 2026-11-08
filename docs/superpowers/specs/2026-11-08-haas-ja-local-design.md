@@ -118,11 +118,11 @@
 
 ## 7. 参考にする公開実装
 
-実装は自分で書くが、構造と落とし穴の確認に次を読む。いずれもApache-2.0。NOTICEとREADMEに「参考にした」と記載する。コードを写す場合はそのファイルに出典を書く。
+実装は自分で書くが、構造と落とし穴の確認に次を読む。flash-linear-attention以外はApache-2.0、flash-linear-attentionはMIT。NOTICEとREADMEに「参考にした」と記載する。コードを写す場合はそのファイルに出典を書く。
 
 - NVIDIA NeMo: ConformerEncoder・RNNTJoint・TDT greedyの元定義。
 - [third-intelligence/Haas-ASR](https://github.com/third-intelligence/Haas-ASR): KDA予測ネットワークの定義（`haas_asr.prednet`）と`transcribe_longform`の分割規則。
-- flash-linear-attentionの`fla/ops/kda/naive.py`: KDAの再帰形の数式。
+- flash-linear-attentionの`fla/ops/kda/naive.py`: KDAの再帰形の数式（ライセンスはMIT）。
 - [matsuurajun/haas-mlx](https://github.com/matsuurajun/haas-mlx): MLXへの重みの並べ替え規則と、MLX実装での既知の注意点。
 - [Sanami/haas-ja-onnx](https://huggingface.co/Sanami/haas-ja-onnx)の`scripts/`と`TECHNICAL.md`: ONNXの入出力仕様と純PyTorchのKDA。
 

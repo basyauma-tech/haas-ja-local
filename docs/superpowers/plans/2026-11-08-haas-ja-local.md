@@ -133,7 +133,7 @@ Expected: FAIL（`__version__`がない、またはimportエラー）
 
 - [ ] **Step 4: `src/haas_ja_local/__init__.py`に`__version__`を置き、`.gitignore`（`var/`、`.venv/`、`__pycache__/`、`dist/`、`*.onnx`、`*.safetensors`）、`LICENSE`（Apache-2.0全文）、`NOTICE`を書く**
 
-NOTICEの内容: 本パッケージの著作権（basyauma-technology、2026）、元モデル`third-intelligence/Haas-ja-v1.0`（Third Intelligence, Inc.、Apache-2.0）、参考にした実装（NVIDIA NeMo、third-intelligence/Haas-ASR、fla-org/flash-linear-attention、matsuurajun/haas-mlx、Sanami/haas-ja-onnx。いずれもApache-2.0）、「非公式・無関係」の一文（日英）。
+NOTICEの内容: 本パッケージの著作権（basyauma-technology、2026）、元モデル`third-intelligence/Haas-ja-v1.0`（Third Intelligence, Inc.、Apache-2.0）、参考にした実装（NVIDIA NeMo、third-intelligence/Haas-ASR、matsuurajun/haas-mlx、Sanami/haas-ja-onnx はApache-2.0。fla-org/flash-linear-attention はMIT）、「非公式・無関係」の一文（日英）。
 
 - [ ] **Step 5: `README.md`の骨組み（日本語→英語。概要、非公式の明記、インストール、使い方は後のタスクで埋める見出しだけ）と`.github/workflows/ci.yml`を書く**
 
