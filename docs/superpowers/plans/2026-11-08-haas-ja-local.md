@@ -670,7 +670,7 @@ class EncoderWrapper(nn.Module)       # forward(audio_signal [B,128,T], length [
 class DecoderJointWrapper(nn.Module)  # forward(encoder_outputs [B,1024,1], targets [B,1] i32, target_length [B] i32, input_states_1 [L,B,20480], input_states_2 [L,B,20480])
                                       #   -> (outputs [B,1,1,3078], prednet_lengths [B] i32, output_states_1, output_states_2)
 def export_onnx(nemo: Path, out_dir: Path) -> None
-#   out_dir/fp32/encoder.onnx (+ encoder.onnx.data、全テンソル1ファイル、size_threshold=1024)、out_dir/fp32/decoder_joint.onnx、config.json、tokenizer.model
+#   out_dir/fp32/encoder.onnx (+ encoder.onnx.data、全テンソル1ファイル、size_threshold=1024)、out_dir/fp32/decoder_joint.onnx、config.json、tokenizer.model、preprocessor.npz（window と fb の float32。ONNX には前処理が含まれないため）
 #   opset 17、dynamic_axes: audio_signal {0:"B",2:"T"}、length {0:"B"}、outputs {0:"B",2:"T_enc"}、encoder_outputs {0:"B"}、targets/target_length/states {1 or 0:"B"}
 #   metadata_props: vocab_size=3072, blank_id=3072, model_type=tdt, durations="0,1,2,3,4", pred_rnn_layers=2, pred_hidden=640, normalize_type=per_feature,
 #                   subsampling_factor=8, feat_dim=128, frame_seconds=0.08, source_repo, source_sha256, converter="haas-ja-local <version>", note="unofficial conversion"
@@ -735,7 +735,7 @@ push後にCIが3 OSで緑になることを確認する。以後の変更はブ�
 - [ ] **Step 4: Hugging Faceへ公開**
 
 ```bash
-hf repo create basyauma-technology/Haas-ja-v1.0-mlx --type model
+hf repos create basyauma-technology/Haas-ja-v1.0-mlx --type model --public
 hf upload basyauma-technology/Haas-ja-v1.0-mlx var/dist/mlx . --commit-message "Add unofficial MLX conversion of third-intelligence/Haas-ja-v1.0"
 ```
 公開ページでfront matterの表示、`base_model`のリンク、元モデルページの一覧への掲載を確認する。`hf download basyauma-technology/Haas-ja-v1.0-mlx --local-dir /tmp/x`→`transcribe`の往復を1回行う。
@@ -781,7 +781,7 @@ Run: `uv run --extra convert haas-ja-local convert-onnx --nemo ... --out var/dis
 - [ ] **Step 3: 公開**
 
 ```bash
-hf repo create basyauma-technology/Haas-ja-v1.0-onnx --type model
+hf repos create basyauma-technology/Haas-ja-v1.0-onnx --type model --public
 hf upload basyauma-technology/Haas-ja-v1.0-onnx var/dist/onnx . --commit-message "Add unofficial ONNX (fp32/int8) conversion of third-intelligence/Haas-ja-v1.0"
 ```
 `hf download`→`transcribe`の往復、ページ表示、元モデルページの一覧掲載を確認する。

@@ -49,6 +49,7 @@
 | `fp32/encoder.onnx`＋`fp32/encoder.onnx.data`、`fp32/decoder_joint.onnx` | 基準となるfloat32。エンコーダは約2.4GBでprotobufの上限（2GB）を超えるため、重みを外部データファイルに分けた2本構成 |
 | `int8/encoder.onnx`、`int8/decoder_joint.onnx` | ONNX Runtimeの動的量子化（per-channel）。CERが合格ならCPU向け既定。細部は §12 |
 | `config.json`、`tokenizer.model` | MLX版と同じ |
+| `preprocessor.npz` | log-mel用の窓とメルフィルタバンク（チェックポイントのbf16をfloat32にしたもの）。ONNXグラフには前処理を含めないため別ファイルで配る |
 | `README.md`、`LICENSE`、`NOTICE` | 同上 |
 
 ### 2.4ワークスペースの台帳
@@ -152,7 +153,7 @@ NeMoのRNNT ONNX書き出しと同じ名前にし、既存のツール（sherpa-
 ## 10. 公開手順
 
 1. GitHub: `gh repo create basyauma-tech/haas-ja-local --public`。mainへの直接pushは初回の土台だけとし、以降はPRで入れる。
-2. Hugging Face: `hf repo create basyauma-technology/Haas-ja-v1.0-mlx --type model`（onnxも同様）、`hf upload`でファイルを上げる。アップロード前に手元で`hf download`→推論の往復を1度通す。
+2. Hugging Face: `hf repos create basyauma-technology/Haas-ja-v1.0-mlx --type model --public`（onnxも同様）、`hf upload`でファイルを上げる。アップロード前に手元で`hf download`→推論の往復を1度通す。
 3. 公開後にモデルカードの表示（front matter、画像なし）と、元モデルページの一覧に出ることを確認する。
 4. `docs/repositories.md`を更新する。
 
